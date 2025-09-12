@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { motion } from "framer-motion";
 import { 
   BookOpen, 
   Play, 
@@ -105,7 +106,12 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
   };
 
   return (
-    <div className={`min-h-screen bg-background ${darkMode ? 'dark' : ''}`}>
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className={`min-h-screen bg-background ${darkMode ? 'dark' : ''}`}
+    >
       {/* Top Navigation */}
       <nav className="bg-card border-b border-border px-6 py-4">
         <div className="flex items-center justify-between">
@@ -218,15 +224,30 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
             </div>
 
             {/* Latest Announcement */}
-            <div className="mb-8">
-              <Card className="border-primary/20 bg-primary/5">
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.2 }}
+              className="mb-8"
+            >
+              <Card className="border-primary/20 bg-primary/5 hover-elevate">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-2">
-                      <Bell className="h-5 w-5 text-primary" />
+                      <motion.div
+                        animate={{ rotate: [0, 10, -10, 0] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                      >
+                        <Bell className="h-5 w-5 text-primary" />
+                      </motion.div>
                       <CardTitle className="text-lg">Latest Update</CardTitle>
                     </div>
-                    <Badge variant="default">New</Badge>
+                    <motion.div
+                      animate={{ scale: [1, 1.1, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <Badge variant="default">New</Badge>
+                    </motion.div>
                   </div>
                 </CardHeader>
                 <CardContent>
@@ -234,7 +255,7 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                   <p className="text-xs text-muted-foreground mt-2">{mockAnnouncements[0].date}</p>
                 </CardContent>
               </Card>
-            </div>
+            </motion.div>
 
             {/* Courses Section */}
             <div>
@@ -311,6 +332,6 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
           </div>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

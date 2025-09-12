@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, ArrowLeft, Smartphone } from "lucide-react";
 
 interface AuthFormsProps {
@@ -68,11 +69,28 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-6">
+    <motion.div 
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-gradient-to-b from-blue-50 to-white flex items-center justify-center p-6"
+    >
       {/* OTP Modal */}
-      {showOTPModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <Card className="w-full max-w-md">
+      <AnimatePresence>
+        {showOTPModal && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Card className="w-full max-w-md">
             <CardHeader>
               <CardTitle className="flex items-center space-x-2">
                 <Smartphone className="h-5 w-5" />
@@ -106,9 +124,11 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                 Resend OTP
               </Button>
             </CardContent>
-          </Card>
-        </div>
-      )}
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <div className="w-full max-w-md">
         {/* Header */}
@@ -147,7 +167,7 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
 
         {/* Login Form */}
         {activeTab === 'login' && (
-          <Card>
+          <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>Login to Your Account</CardTitle>
               <CardDescription>Enter your credentials to continue learning</CardDescription>
@@ -196,7 +216,7 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
 
         {/* Register Form */}
         {activeTab === 'register' && (
-          <Card>
+          <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>Create New Account</CardTitle>
               <CardDescription>Join thousands of successful students</CardDescription>
@@ -288,7 +308,7 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
 
         {/* Forgot Password Form */}
         {activeTab === 'forgot' && (
-          <Card>
+          <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>Reset Password</CardTitle>
               <CardDescription>
@@ -357,6 +377,6 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
           </Card>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
