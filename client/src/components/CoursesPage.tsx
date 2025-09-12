@@ -46,8 +46,7 @@ const mockCourses = {
       students: 1856,
       videos: 76,
       duration: "80 hours",
-      price: "₹4,999",
-      enrolled: false
+      price: "₹4,999"
     },
     {
       id: "class-9-chemistry", 
@@ -57,8 +56,7 @@ const mockCourses = {
       students: 1654,
       videos: 68,
       duration: "75 hours", 
-      price: "₹4,999",
-      enrolled: false
+      price: "₹4,999"
     },
     {
       id: "class-9-maths",
@@ -68,8 +66,7 @@ const mockCourses = {
       students: 2156,
       videos: 89,
       duration: "90 hours",
-      price: "₹4,999", 
-      enrolled: false
+      price: "₹4,999"
     },
     {
       id: "class-9-biology",
@@ -79,8 +76,7 @@ const mockCourses = {
       students: 1334,
       videos: 62,
       duration: "70 hours",
-      price: "₹4,999",
-      enrolled: false
+      price: "₹4,999"
     }
   ],
   "10": [
@@ -92,8 +88,7 @@ const mockCourses = {
       students: 2847,
       videos: 96,
       duration: "100 hours",
-      price: "₹5,999",
-      enrolled: false
+      price: "₹5,999"
     },
     {
       id: "class-10-chemistry",
@@ -103,8 +98,7 @@ const mockCourses = {
       students: 2456,
       videos: 88,
       duration: "95 hours",
-      price: "₹5,999",
-      enrolled: false
+      price: "₹5,999"
     },
     {
       id: "class-10-maths",
@@ -114,8 +108,7 @@ const mockCourses = {
       students: 3156,
       videos: 112,
       duration: "120 hours", 
-      price: "₹5,999",
-      enrolled: false
+      price: "₹5,999"
     },
     {
       id: "class-10-biology",
@@ -125,8 +118,7 @@ const mockCourses = {
       students: 1876,
       videos: 78,
       duration: "85 hours",
-      price: "₹5,999",
-      enrolled: false
+      price: "₹5,999"
     }
   ],
   "11": [
@@ -138,8 +130,7 @@ const mockCourses = {
       students: 2234,
       videos: 134,
       duration: "150 hours",
-      price: "₹7,999",
-      enrolled: false
+      price: "₹7,999"
     },
     {
       id: "class-11-chemistry",
@@ -149,8 +140,7 @@ const mockCourses = {
       students: 1924,
       videos: 126,
       duration: "145 hours",
-      price: "₹7,999", 
-      enrolled: false
+      price: "₹7,999"
     },
     {
       id: "class-11-maths",
@@ -160,8 +150,7 @@ const mockCourses = {
       students: 2567,
       videos: 145,
       duration: "160 hours",
-      price: "₹7,999",
-      enrolled: false
+      price: "₹7,999"
     },
     {
       id: "class-11-biology",
@@ -171,8 +160,7 @@ const mockCourses = {
       students: 1445,
       videos: 98,
       duration: "120 hours",
-      price: "₹7,999",
-      enrolled: false
+      price: "₹7,999"
     }
   ],
   "12": [
@@ -184,8 +172,7 @@ const mockCourses = {
       students: 2847,
       videos: 156,
       duration: "180 hours",
-      price: "₹8,999",
-      enrolled: true
+      price: "₹8,999"
     },
     {
       id: "class-12-chemistry",
@@ -195,8 +182,7 @@ const mockCourses = {
       students: 2456,
       videos: 148,
       duration: "175 hours",
-      price: "₹8,999",
-      enrolled: false
+      price: "₹8,999"
     },
     {
       id: "class-12-maths",
@@ -206,8 +192,7 @@ const mockCourses = {
       students: 2987,
       videos: 167,
       duration: "190 hours",
-      price: "₹8,999",
-      enrolled: false
+      price: "₹8,999"
     },
     {
       id: "class-12-biology",
@@ -217,8 +202,7 @@ const mockCourses = {
       students: 1756,
       videos: 123,
       duration: "140 hours",
-      price: "₹8,999",
-      enrolled: false
+      price: "₹8,999"
     }
   ]
 };
@@ -242,7 +226,7 @@ const getSubjectIcon = (subject: string) => {
 export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail, onEnrollCourse }: CoursesPageProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeClass, setActiveClass] = useState(user.class);
+  const [activeClass, setActiveClass] = useState("12"); // Default to show Class 12 (most popular)
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -328,16 +312,16 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
               
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  Your Enrollment
+                  Your Learning
                 </h3>
                 <div className="space-y-3">
                   <div className="bg-primary/10 p-3 rounded-lg">
                     <div className="text-2xl font-bold text-primary">{user.enrolledCourses.length}</div>
                     <div className="text-xs text-muted-foreground">Enrolled Courses</div>
                   </div>
-                  <div className="bg-green-100 dark:bg-green-900/20 p-3 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">₹8,999</div>
-                    <div className="text-xs text-muted-foreground">Current Investment</div>
+                  <div className="bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 p-3 rounded-lg">
+                    <div className="text-sm font-medium text-blue-800 dark:text-blue-200">Any Class Level</div>
+                    <div className="text-xs text-muted-foreground">Available to You</div>
                   </div>
                 </div>
               </div>
@@ -359,10 +343,10 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
             {/* Header */}
             <div className="mb-8">
               <h1 className="text-3xl font-bold text-foreground mb-2">
-                Available Courses
+                All Courses Available
               </h1>
               <p className="text-muted-foreground">
-                Choose from our comprehensive curriculum designed for academic excellence
+                Enroll in any course regardless of your current class level - perfect for advanced learning or foundational review
               </p>
             </div>
 
@@ -457,14 +441,14 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
             </Tabs>
 
             {/* Enrollment Info */}
-            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <Card className="bg-gradient-to-r from-primary/10 to-blue-50 dark:from-primary/20 dark:to-blue-900/20 border-primary/20">
               <CardContent className="p-6">
-                <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                  Need to Enroll in a Course?
+                <h3 className="text-lg font-semibold text-primary mb-2">
+                  Flexible Learning for Every Student
                 </h3>
-                <p className="text-blue-800 dark:text-blue-200 text-sm mb-4">
-                  Contact our admissions team to complete your enrollment. We offer flexible payment plans and 
-                  seasonal discounts for multiple course purchases.
+                <p className="text-muted-foreground text-sm mb-4">
+                  Students can enroll in any course regardless of their current class level. 
+                  Perfect for advanced learners or those who need foundational review.
                 </p>
                 <div className="flex flex-wrap gap-4">
                   <Button size="sm" data-testid="button-contact-admissions">

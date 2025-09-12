@@ -27,6 +27,7 @@ interface DashboardProps {
   onLogout: () => void;
   onViewCourse: (courseId: string) => void;
   onEnrollCourse: (courseId: string) => void;
+  onViewAllCourses?: () => void;
 }
 
 // todo: remove mock functionality
@@ -84,7 +85,7 @@ const mockPopularCourses = [
   }
 ];
 
-export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse }: DashboardProps) {
+export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse, onViewAllCourses }: DashboardProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -216,51 +217,47 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
               </p>
             </div>
 
-            {/* Announcements */}
+            {/* Latest Announcement */}
             <div className="mb-8">
-              <h2 className="text-2xl font-semibold mb-4 flex items-center">
-                <Bell className="h-6 w-6 mr-2" />
-                Institute Announcements
-              </h2>
-              <div className="grid gap-4">
-                {mockAnnouncements.map((announcement) => (
-                  <Card key={announcement.id} className="hover-elevate">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg">{announcement.title}</CardTitle>
-                        <Badge 
-                          variant={announcement.priority === 'high' ? 'destructive' : 
-                                  announcement.priority === 'medium' ? 'default' : 'secondary'}
-                        >
-                          {announcement.priority}
-                        </Badge>
-                      </div>
-                      <CardDescription>{announcement.date}</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <p className="text-sm">{announcement.content}</p>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+              <Card className="border-primary/20 bg-primary/5">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Bell className="h-5 w-5 text-primary" />
+                      <CardTitle className="text-lg">Latest Update</CardTitle>
+                    </div>
+                    <Badge variant="default">New</Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm">{mockAnnouncements[0].content}</p>
+                  <p className="text-xs text-muted-foreground mt-2">{mockAnnouncements[0].date}</p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Courses Section */}
             <div>
-              <h2 className="text-2xl font-semibold mb-4 flex items-center">
-                <BookOpen className="h-6 w-6 mr-2" />
-                {enrolledCourseDetails.length > 0 ? 'Your Enrolled Courses' : 'Popular Courses'}
-              </h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-semibold flex items-center">
+                  <BookOpen className="h-6 w-6 mr-2" />
+                  {enrolledCourseDetails.length > 0 ? 'Continue Learning' : 'Start Learning'}
+                </h2>
+                <Button variant="outline" onClick={onViewAllCourses}>
+                  View All Courses
+                </Button>
+              </div>
               
               {enrolledCourseDetails.length === 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
-                  <p className="text-blue-800 dark:text-blue-200 text-sm">
-                    You haven't enrolled in any courses yet. Check out our popular courses below and contact our team to get started!
+                <div className="text-center mb-6 p-6 bg-gradient-to-r from-primary/10 to-blue-50 rounded-lg">
+                  <h3 className="text-lg font-medium mb-2">Ready to start your learning journey?</h3>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Explore our comprehensive courses and join thousands of successful students
                   </p>
                 </div>
               )}
 
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid md:grid-cols-2 gap-6">
                 {displayCourses.map((course) => (
                   <Card key={course.id} className="hover-elevate">
                     <CardHeader>

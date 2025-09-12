@@ -71,6 +71,10 @@ export default function LMSApp() {
     setCurrentState('course-detail');
   };
 
+  const handleViewAllCourses = () => {
+    setCurrentState('courses');
+  };
+
   const handleEnrollCourse = (courseId: string) => {
     console.log('Enrollment request for course:', courseId);
     // todo: remove mock functionality - implement real enrollment
@@ -124,6 +128,7 @@ export default function LMSApp() {
         onLogout={handleLogout}
         onViewCourse={handleViewCourse}
         onEnrollCourse={handleEnrollCourse}
+        onViewAllCourses={handleViewAllCourses}
       />
     );
   }
