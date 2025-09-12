@@ -1,5 +1,5 @@
 import { useState } from "react";
-import WelcomeHero from "./WelcomeHero";
+import WelcomePage from "./WelcomePage";
 import AuthForms, { type RegisterData } from "./AuthForms";
 import Dashboard from "./Dashboard";
 import CoursesPage from "./CoursesPage";
@@ -104,7 +104,7 @@ export default function LMSApp() {
   };
 
   if (currentState === 'welcome') {
-    return <WelcomeHero onGetStarted={handleGetStarted} />;
+    return <WelcomePage onGetStarted={handleGetStarted} />;
   }
 
   if (currentState === 'auth') {
@@ -118,7 +118,7 @@ export default function LMSApp() {
   }
 
   if (!currentUser) {
-    return <WelcomeHero onGetStarted={handleGetStarted} />;
+    return <WelcomePage onGetStarted={handleGetStarted} />;
   }
 
   if (currentState === 'dashboard') {
@@ -170,5 +170,5 @@ export default function LMSApp() {
     );
   }
 
-  return <WelcomeHero onGetStarted={handleGetStarted} />;
+  return <WelcomePage onGetStarted={handleGetStarted} />;
 }
