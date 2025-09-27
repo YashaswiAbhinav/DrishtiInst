@@ -22,6 +22,33 @@ import {
   Lock
 } from "lucide-react";
 
+interface Video {
+  id: string;
+  title: string;
+  duration: string;
+  watched: boolean;
+  embedUrl?: string;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  description: string;
+  videoCount: number;
+  duration: string;
+  videos: Video[];
+}
+
+interface Course {
+  id: string;
+  name: string;
+  description: string;
+  totalVideos: number;
+  totalDuration: string;
+  students: number;
+  subjects: Subject[];
+}
+
 interface CourseDetailPageProps {
   courseId: string;
   user: {
@@ -32,98 +59,38 @@ interface CourseDetailPageProps {
   };
   onBack: () => void;
   onLogout: () => void;
-  onPlayVideo: (videoId: string) => void;
+  onPlayVideo: (videoUrl: string) => void;
 }
-
-// todo: remove mock functionality
-const mockCourseData = {
-  "class-12-physics": {
-    name: "Class 12 Physics",
-    description: "Complete JEE & Board preparation with advanced physics concepts",
-    totalVideos: 156,
-    totalDuration: "180 hours",
-    students: 2847,
-    subjects: [
-      {
-        id: "electrostatics",
-        name: "Electrostatics",
-        description: "Electric charges, fields, and potential",
-        videoCount: 28,
-        duration: "35 hours",
-        videos: [
-          { id: "v1", title: "Introduction to Electric Charges", duration: "45:30", watched: true },
-          { id: "v2", title: "Coulomb's Law and Applications", duration: "52:15", watched: true },
-          { id: "v3", title: "Electric Field and Field Lines", duration: "48:20", watched: false },
-          { id: "v4", title: "Electric Potential and Potential Energy", duration: "55:40", watched: false },
-          { id: "v5", title: "Capacitors and Capacitance", duration: "58:25", watched: false }
-        ]
-      },
-      {
-        id: "current-electricity",
-        name: "Current Electricity", 
-        description: "Current, resistance, and electrical circuits",
-        videoCount: 32,
-        duration: "40 hours",
-        videos: [
-          { id: "v6", title: "Electric Current and Drift Velocity", duration: "42:10", watched: false },
-          { id: "v7", title: "Ohm's Law and Resistance", duration: "38:45", watched: false },
-          { id: "v8", title: "Series and Parallel Circuits", duration: "46:30", watched: false },
-          { id: "v9", title: "Kirchhoff's Laws", duration: "51:20", watched: false },
-          { id: "v10", title: "Wheatstone Bridge", duration: "44:15", watched: false }
-        ]
-      },
-      {
-        id: "magnetism",
-        name: "Magnetism and Magnetic Effects",
-        description: "Magnetic fields, forces, and electromagnetic induction",
-        videoCount: 35,
-        duration: "42 hours", 
-        videos: [
-          { id: "v11", title: "Magnetic Field and Field Lines", duration: "47:25", watched: false },
-          { id: "v12", title: "Force on Current Carrying Conductor", duration: "49:10", watched: false },
-          { id: "v13", title: "Electromagnetic Induction", duration: "53:30", watched: false },
-          { id: "v14", title: "Lenz's Law and Faraday's Law", duration: "50:45", watched: false },
-          { id: "v15", title: "AC Generators and Motors", duration: "56:20", watched: false }
-        ]
-      },
-      {
-        id: "optics",
-        name: "Ray Optics and Wave Optics",
-        description: "Reflection, refraction, interference, and diffraction",
-        videoCount: 30,
-        duration: "36 hours",
-        videos: [
-          { id: "v16", title: "Reflection and Refraction of Light", duration: "45:15", watched: false },
-          { id: "v17", title: "Total Internal Reflection", duration: "41:30", watched: false },
-          { id: "v18", title: "Lenses and Lens Formula", duration: "48:45", watched: false },
-          { id: "v19", title: "Wave Nature of Light", duration: "43:20", watched: false },
-          { id: "v20", title: "Interference and Young's Experiment", duration: "52:10", watched: false }
-        ]
-      },
-      {
-        id: "modern-physics",
-        name: "Modern Physics",
-        description: "Dual nature of matter, atoms, and nuclei",
-        videoCount: 31,
-        duration: "38 hours",
-        videos: [
-          { id: "v21", title: "Photoelectric Effect", duration: "46:40", watched: false },
-          { id: "v22", title: "de Broglie Wavelength", duration: "41:25", watched: false },
-          { id: "v23", title: "Bohr's Atomic Model", duration: "49:50", watched: false },
-          { id: "v24", title: "Radioactivity and Nuclear Reactions", duration: "54:30", watched: false },
-          { id: "v25", title: "Nuclear Fission and Fusion", duration: "47:15", watched: false }
-        ]
-      }
-    ]
-  }
-};
 
 export default function CourseDetailPage({ courseId, user, onBack, onLogout, onPlayVideo }: CourseDetailPageProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<string[]>(["electrostatics"]);
+  const [course, setCourse] = useState<Course | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const course = mockCourseData[courseId as keyof typeof mockCourseData];
+  useEffect(() => {
+    const fetchCourseData = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch(`/api/course/${courseId}`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        setCourse(data.course);
+      } catch (err) {
+        setError("Failed to fetch course data.");
+        console.error("Error fetching course data:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCourseData();
+  }, [courseId]);
+
   const isEnrolled = user.enrolledCourses.includes(courseId);
 
   const toggleDarkMode = () => {
@@ -349,7 +316,7 @@ export default function CourseDetailPage({ courseId, user, onBack, onLogout, onP
                             <div 
                               key={video.id}
                               className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 cursor-pointer hover-elevate"
-                              onClick={() => isEnrolled ? onPlayVideo(video.id) : undefined}
+                              onClick={() => isEnrolled && video.embedUrl ? onPlayVideo(video.embedUrl) : undefined}
                               data-testid={`video-${video.id}`}
                             >
                               <div className="flex items-center space-x-3">

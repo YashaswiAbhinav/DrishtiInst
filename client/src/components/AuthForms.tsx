@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, ArrowLeft, Smartphone } from "lucide-react";
+import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
 
 interface AuthFormsProps {
-  onLogin: (username: string, password: string) => void;
-  onRegister: (userData: RegisterData) => void;
+  onLogin: (identifier: string, password: string) => Promise<void>;
+  onRegister: (userData: RegisterData) => Promise<void>;
   onBack: () => void;
 }
 
@@ -36,24 +37,63 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
   const [forgotData, setForgotData] = useState({ identifier: '', otpSent: false, otp: '', newPassword: '' });
   const [showOTPModal, setShowOTPModal] = useState(false);
   const [registrationOTP, setRegistrationOTP] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [confirmationResult, setConfirmationResult] = useState<any>(null);
+  const [pendingUserData, setPendingUserData] = useState<RegisterData | null>(null);
+  const { sendPhoneOTP, verifyOTP } = useAdvancedAuth();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Login attempt:', loginData);
-    onLogin(loginData.username, loginData.password);
+    setIsLoading(true);
+    setError('');
+    try {
+      await onLogin(loginData.username, loginData.password);
+    } catch (error: any) {
+      setError(error.message || 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Registration attempt:', registerData);
-    // Simulate OTP verification
-    setShowOTPModal(true);
+    setIsLoading(true);
+    setError('');
+    try {
+      // If phone number is provided, send OTP first
+      if (registerData.phone && !registerData.email) {
+        const result = await sendPhoneOTP(registerData.phone);
+        setConfirmationResult(result);
+        setPendingUserData(registerData);
+        setShowOTPModal(true);
+      } else {
+        await onRegister(registerData);
+      }
+    } catch (error: any) {
+      setError(error.message || 'Registration failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleOTPVerification = () => {
-    console.log('OTP verified:', registrationOTP);
-    setShowOTPModal(false);
-    onRegister(registerData);
+  const handleOTPVerification = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      if (confirmationResult && registrationOTP && pendingUserData) {
+        await verifyOTP(confirmationResult, registrationOTP, pendingUserData);
+        setShowOTPModal(false);
+        setPendingUserData(null);
+        console.log('Phone verification and registration successful');
+      } else {
+        throw new Error('Invalid OTP or confirmation result');
+      }
+    } catch (error: any) {
+      setError(error.message || 'OTP verification failed');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleForgotPassword = (e: React.FormEvent) => {
@@ -99,6 +139,9 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
               <CardDescription>
                 Enter the 6-digit OTP sent to {registerData.phone}
               </CardDescription>
+              {error && (
+                <div className="text-red-500 text-sm">{error}</div>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -113,8 +156,8 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                 />
               </div>
               <div className="flex space-x-2">
-                <Button onClick={handleOTPVerification} className="flex-1" data-testid="button-verify-otp">
-                  Verify & Register
+                <Button onClick={handleOTPVerification} className="flex-1" disabled={isLoading} data-testid="button-verify-otp">
+                  {isLoading ? 'Verifying...' : 'Verify & Register'}
                 </Button>
                 <Button variant="outline" onClick={() => setShowOTPModal(false)}>
                   Cancel
@@ -129,6 +172,9 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Recaptcha container for phone authentication */}
+      <div id="recaptcha-container"></div>
 
       <div className="w-full max-w-md">
         {/* Header */}
@@ -197,8 +243,11 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                     data-testid="input-password"
                   />
                 </div>
-                <Button type="submit" className="w-full" data-testid="button-login-submit">
-                  Login
+                {error && (
+                  <div className="text-red-500 text-sm text-center">{error}</div>
+                )}
+                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-login-submit">
+                  {isLoading ? 'Logging in...' : 'Login'}
                 </Button>
                 <Button
                   type="button"
@@ -298,8 +347,11 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                     data-testid="input-reg-password"
                   />
                 </div>
-                <Button type="submit" className="w-full" data-testid="button-register-submit">
-                  Register Account
+                {error && (
+                  <div className="text-red-500 text-sm text-center">{error}</div>
+                )}
+                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-register-submit">
+                  {isLoading ? 'Creating Account...' : 'Register Account'}
                 </Button>
               </form>
             </CardContent>

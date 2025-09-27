@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+
 import { 
   Play, 
   Pause, 
@@ -19,11 +20,19 @@ import {
   Settings,
   SkipBack,
   SkipForward,
-  BookOpen
+  BookOpen,
+  ThumbsUp,
+  ThumbsDown,
+  Share,
+  Download,
+  Clock,
+  Eye,
+  Video,
+  FileText
 } from "lucide-react";
 
 interface VideoPlayerProps {
-  videoId: string;
+  videoUrl: string;
   user: {
     name: string;
     username: string;
@@ -35,390 +44,244 @@ interface VideoPlayerProps {
   onPreviousVideo?: () => void;
 }
 
-// todo: remove mock functionality
-const mockVideoData = {
-  v1: {
-    title: "Introduction to Electric Charges",
-    subject: "Electrostatics",
-    course: "Class 12 Physics",
-    duration: "45:30",
-    description: "In this comprehensive lecture, we explore the fundamental concepts of electric charges, their properties, and behavior in different materials.",
-    // In a real implementation, this would be a secure Google Drive embed URL
-    videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ", // Placeholder - would be actual Google Drive embed
-    notes: [
-      "Electric charge is a fundamental property of matter",
-      "There are two types of charges: positive and negative", 
-      "Like charges repel, unlike charges attract",
-      "Charge is conserved in isolated systems",
-      "Conductors vs insulators behavior with charges"
-    ]
-  }
-};
+// Mock related videos data
+const mockRelatedVideos = [
+  { id: '1', title: 'Units and Measurements - L2 SI Units', duration: '42:15', views: '1.2K', thumbnail: '/api/placeholder/160/90' },
+  { id: '2', title: 'Units and Measurements - L3 Dimensional Analysis', duration: '38:20', views: '980', thumbnail: '/api/placeholder/160/90' },
+  { id: '3', title: 'Motion - L1 Types of Motion', duration: '45:30', views: '1.5K', thumbnail: '/api/placeholder/160/90' },
+  { id: '4', title: 'Motion - L2 Uniform Motion', duration: '40:10', views: '1.1K', thumbnail: '/api/placeholder/160/90' },
+  { id: '5', title: 'Force and Laws - L1 Newton\'s Laws', duration: '50:25', views: '2.1K', thumbnail: '/api/placeholder/160/90' },
+];
 
-export default function VideoPlayer({ videoId, user, onBack, onLogout, onNextVideo, onPreviousVideo }: VideoPlayerProps) {
+const mockNotes = [
+  'Introduction to fundamental units and derived units',
+  'Understanding the SI system of measurement',
+  'Conversion between different unit systems',
+  'Significant figures and their importance',
+  'Error analysis in measurements'
+];
+
+export default function VideoPlayer({ videoUrl, user, onBack, onLogout, onNextVideo, onPreviousVideo }: VideoPlayerProps) {
   const [darkMode, setDarkMode] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(2730); // 45:30 in seconds
-  const [showControls, setShowControls] = useState(true);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [liked, setLiked] = useState(false);
+  const [disliked, setDisliked] = useState(false);
+  const [showNotes, setShowNotes] = useState(true);
   
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const video = mockVideoData[videoId as keyof typeof mockVideoData];
+  const videoRef = useRef<HTMLIFrameElement>(null);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.documentElement.classList.toggle('dark');
   };
 
-  const togglePlay = () => {
-    setIsPlaying(!isPlaying);
-    console.log(isPlaying ? 'Video paused' : 'Video playing');
+  const handleLike = () => {
+    setLiked(!liked);
+    if (disliked) setDisliked(false);
   };
 
-  const toggleMute = () => {
-    setIsMuted(!isMuted);
-    console.log(isMuted ? 'Video unmuted' : 'Video muted');
+  const handleDislike = () => {
+    setDisliked(!disliked);
+    if (liked) setLiked(false);
   };
-
-  const toggleFullscreen = () => {
-    if (!isFullscreen) {
-      containerRef.current?.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
-    setIsFullscreen(!isFullscreen);
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newTime = (parseInt(e.target.value) / 100) * duration;
-    setCurrentTime(newTime);
-    console.log('Seeking to:', formatTime(newTime));
-  };
-
-  const skip = (seconds: number) => {
-    const newTime = Math.max(0, Math.min(duration, currentTime + seconds));
-    setCurrentTime(newTime);
-    console.log('Skipped to:', formatTime(newTime));
-  };
-
-  // Simulate video progress
-  useEffect(() => {
-    if (isPlaying) {
-      const interval = setInterval(() => {
-        setCurrentTime(prev => {
-          if (prev >= duration) {
-            setIsPlaying(false);
-            return duration;
-          }
-          return prev + 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [isPlaying, duration]);
-
-  // Hide controls after inactivity
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isPlaying) setShowControls(false);
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [showControls, isPlaying]);
-
-  if (!video) {
-    return <div className="min-h-screen flex items-center justify-center">Video not found</div>;
-  }
 
   return (
-    <div className={`min-h-screen bg-background ${darkMode ? 'dark' : ''}`}>
-      {/* Top Navigation */}
-      <nav className="bg-card border-b border-border px-6 py-4">
+    <div className={`min-h-screen bg-gray-50 ${darkMode ? 'dark' : ''}`}>
+      {/* Header */}
+      <nav className="bg-white border-b px-6 py-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" onClick={onBack} data-testid="button-back">
+            <Button variant="ghost" onClick={onBack} size="sm">
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Course
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="md:hidden"
-              data-testid="button-menu-toggle"
-            >
-              {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              Back to Courses
             </Button>
             <div className="flex items-center space-x-2">
-              <BookOpen className="h-6 w-6 text-primary" />
-              <span className="text-xl font-semibold">Drishti Institute</span>
+              <BookOpen className="h-5 w-5 text-blue-600" />
+              <span className="font-semibold text-gray-900">Drishti Institute</span>
             </div>
           </div>
           
-          <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="icon" data-testid="button-notifications">
-              <Bell className="h-5 w-5" />
+          <div className="flex items-center space-x-3">
+            <Button variant="ghost" size="icon" onClick={toggleDarkMode}>
+              {darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={toggleDarkMode} data-testid="button-theme-toggle">
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-            </Button>
-            <div className="flex items-center space-x-3">
-              <Avatar>
-                <AvatarImage src="" />
-                <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
-              </Avatar>
-              <div className="hidden md:block">
-                <p className="text-sm font-medium">{user.name}</p>
-                <p className="text-xs text-muted-foreground">Class {user.class}</p>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onLogout} data-testid="button-logout">
-              <LogOut className="h-5 w-5" />
+            <Avatar className="h-8 w-8">
+              <AvatarFallback className="text-xs">{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+            </Avatar>
+            <Button variant="ghost" size="icon" onClick={onLogout}>
+              <LogOut className="h-4 w-4" />
             </Button>
           </div>
         </div>
       </nav>
 
-      <div className="flex">
-        {/* Sidebar */}
-        <div className={`
-          fixed md:static inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-200 ease-in-out
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
-        `}>
-          <div className="p-6">
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  Video Info
-                </h3>
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-sm font-medium">{video.course}</div>
-                    <div className="text-xs text-muted-foreground">{video.subject}</div>
-                  </div>
-                  <div className="bg-primary/10 p-3 rounded-lg">
-                    <div className="text-sm font-bold text-primary">{video.duration}</div>
-                    <div className="text-xs text-muted-foreground">Duration</div>
-                  </div>
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  Key Points
-                </h3>
-                <div className="space-y-2">
-                  {video.notes.map((note, index) => (
-                    <div key={index} className="text-xs p-2 bg-muted rounded text-muted-foreground">
-                      • {note}
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              <div>
-                <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
-                  Navigation
-                </h3>
-                <div className="space-y-2">
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start" 
-                    onClick={onPreviousVideo}
-                    disabled={!onPreviousVideo}
-                    data-testid="button-previous-video"
-                  >
-                    <SkipBack className="h-4 w-4 mr-3" />
-                    Previous Video
-                  </Button>
-                  <Button 
-                    variant="ghost" 
-                    className="w-full justify-start"
-                    onClick={onNextVideo}
-                    disabled={!onNextVideo}
-                    data-testid="button-next-video"
-                  >
-                    <SkipForward className="h-4 w-4 mr-3" />
-                    Next Video
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sidebar Overlay */}
-        {sidebarOpen && (
-          <div 
-            className="fixed inset-0 bg-black/50 z-40 md:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-
-        {/* Main Content */}
-        <div className="flex-1 md:ml-0">
-          {/* Video Player Container */}
-          <div 
-            ref={containerRef}
-            className="relative bg-black"
-            onMouseMove={() => setShowControls(true)}
-            data-testid="video-container"
-          >
-            {/* Watermark */}
-            <div className="absolute top-4 right-4 z-30 bg-black/50 text-white px-3 py-1 rounded text-sm font-medium">
+      {/* Main Content */}
+      <div className="flex gap-6 p-6 max-w-7xl mx-auto">
+        {/* Left Column - Video Player */}
+        <div className="flex-1 space-y-4">
+          {/* Video Player */}
+          <div className="relative bg-black rounded-lg overflow-hidden shadow-lg">
+            <div className="absolute top-3 right-3 z-10 bg-black/70 text-white px-2 py-1 rounded text-xs font-medium">
               {user.username}
             </div>
             
-            {/* Video Element */}
-            <div className="relative aspect-video bg-black flex items-center justify-center">
-              {/* Placeholder for actual video */}
-              <div className="w-full h-full bg-gradient-to-br from-gray-800 to-gray-900 flex items-center justify-center">
-                <div className="text-center text-white">
-                  <div className="w-24 h-24 bg-primary/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                    {isPlaying ? (
-                      <Pause className="h-12 w-12 text-white" />
-                    ) : (
-                      <Play className="h-12 w-12 text-white" />
-                    )}
-                  </div>
-                  <p className="text-lg font-medium">{video.title}</p>
-                  <p className="text-sm text-gray-300 mt-2">Secure Video Player</p>
-                  <p className="text-xs text-gray-400 mt-1">Download disabled • Right-click disabled</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Video Controls */}
-            <div className={`
-              absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300
-              ${showControls ? 'opacity-100' : 'opacity-0'}
-            `}>
-              {/* Progress Bar */}
-              <div className="mb-4">
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={(currentTime / duration) * 100}
-                  onChange={handleSeek}
-                  className="w-full h-1 bg-white/30 rounded-lg appearance-none cursor-pointer slider"
-                  data-testid="video-progress"
+            <div className="aspect-video">
+              {videoUrl ? (
+                <iframe
+                  ref={videoRef}
+                  src={videoUrl}
+                  className="w-full h-full"
+                  frameBorder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  title="Course Video"
                 />
+              ) : (
+                <div className="flex items-center justify-center h-full text-white">
+                  <div className="text-center">
+                    <Play className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+                    <p className="text-lg font-medium">No Video Selected</p>
+                    <p className="text-sm text-gray-400 mt-2">Please select a video to play</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Video Info */}
+          <div className="bg-white rounded-lg p-4 shadow-sm">
+            <h1 className="text-xl font-bold text-gray-900 mb-2">
+              Units and Measurements - L1 Introduction
+            </h1>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-4 text-sm text-gray-600">
+                <div className="flex items-center space-x-1">
+                  <Eye className="h-4 w-4" />
+                  <span>1,234 views</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Clock className="h-4 w-4" />
+                  <span>2 days ago</span>
+                </div>
+                <Badge variant="secondary">Class 9 Physics</Badge>
               </div>
               
-              {/* Control Buttons */}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => skip(-10)}
-                    className="text-white hover:bg-white/20"
-                    data-testid="button-skip-back"
-                  >
-                    <SkipBack className="h-5 w-5" />
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={togglePlay}
-                    className="text-white hover:bg-white/20"
-                    data-testid="button-play-pause"
-                  >
-                    {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={() => skip(10)}
-                    className="text-white hover:bg-white/20"
-                    data-testid="button-skip-forward"
-                  >
-                    <SkipForward className="h-5 w-5" />
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={toggleMute}
-                    className="text-white hover:bg-white/20"
-                    data-testid="button-mute"
-                  >
-                    {isMuted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                  </Button>
-                  
-                  <span className="text-white text-sm">
-                    {formatTime(currentTime)} / {formatTime(duration)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    className="text-white hover:bg-white/20"
-                    data-testid="button-settings"
-                  >
-                    <Settings className="h-5 w-5" />
-                  </Button>
-                  
-                  <Button 
-                    variant="ghost" 
-                    size="icon"
-                    onClick={toggleFullscreen}
-                    className="text-white hover:bg-white/20"
-                    data-testid="button-fullscreen"
-                  >
-                    <Maximize2 className="h-5 w-5" />
-                  </Button>
-                </div>
+              <div className="flex items-center space-x-2">
+                <Button 
+                  variant={liked ? "default" : "outline"} 
+                  size="sm"
+                  onClick={handleLike}
+                >
+                  <ThumbsUp className="h-4 w-4 mr-1" />
+                  {liked ? '124' : '123'}
+                </Button>
+                <Button 
+                  variant={disliked ? "default" : "outline"} 
+                  size="sm"
+                  onClick={handleDislike}
+                >
+                  <ThumbsDown className="h-4 w-4 mr-1" />
+                  {disliked ? '3' : '2'}
+                </Button>
+                <Button variant="outline" size="sm">
+                  <Share className="h-4 w-4 mr-1" />
+                  Share
+                </Button>
+              </div>
+            </div>
+            
+            <div className="border-t my-4" />
+            
+            <div className="flex items-start space-x-3">
+              <Avatar>
+                <AvatarFallback>DI</AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <h3 className="font-semibold text-gray-900">Drishti Institute</h3>
+                <p className="text-sm text-gray-600 mb-2">Physics Department</p>
+                <p className="text-sm text-gray-700">
+                  In this comprehensive lecture, we explore the fundamental concepts of units and measurements, 
+                  covering the SI system, dimensional analysis, and error calculations essential for physics studies.
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Video Info Section */}
-          <div className="p-6">
-            <div className="max-w-4xl mx-auto">
-              <div className="mb-4">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Badge variant="secondary">{video.subject}</Badge>
-                  <Badge variant="outline">{video.course}</Badge>
-                </div>
-                <h1 className="text-2xl font-bold text-foreground mb-2">{video.title}</h1>
-                <p className="text-muted-foreground">{video.description}</p>
+          {/* Lecture Notes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center text-lg">
+                <FileText className="h-5 w-5 mr-2" />
+                Lecture Notes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                {mockNotes.map((note, index) => (
+                  <div key={index} className="flex items-start space-x-2">
+                    <div className="w-2 h-2 bg-blue-600 rounded-full mt-2 flex-shrink-0" />
+                    <p className="text-sm text-gray-700">{note}</p>
+                  </div>
+                ))}
               </div>
+            </CardContent>
+          </Card>
+        </div>
 
-              {/* Security Notice */}
-              <Card className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
-                <CardContent className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className="w-5 h-5 bg-yellow-500 rounded-full flex-shrink-0 mt-0.5"></div>
-                    <div>
-                      <h3 className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-1">
-                        Protected Content
-                      </h3>
-                      <p className="text-xs text-yellow-700 dark:text-yellow-300">
-                        This video is protected and cannot be downloaded, shared, or recorded. 
-                        Your username is watermarked for security purposes.
-                      </p>
+        {/* Right Column - Related Videos */}
+        <div className="w-80 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Up Next</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {mockRelatedVideos.map((video, index) => (
+                <div key={video.id} className="flex space-x-3 p-2 rounded-lg hover:bg-gray-50 cursor-pointer transition-colors">
+                  <div className="relative flex-shrink-0">
+                    <div className="w-24 h-14 bg-gray-200 rounded flex items-center justify-center">
+                      <Video className="h-6 w-6 text-gray-400" />
+                    </div>
+                    <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs px-1 rounded">
+                      {video.duration}
                     </div>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-gray-900 line-clamp-2 mb-1">
+                      {video.title}
+                    </h4>
+                    <p className="text-xs text-gray-600">Drishti Institute</p>
+                    <p className="text-xs text-gray-500">{video.views} views</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Navigation */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Navigation</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={onPreviousVideo}
+                disabled={!onPreviousVideo}
+              >
+                <SkipBack className="h-4 w-4 mr-2" />
+                Previous Lecture
+              </Button>
+              <Button 
+                variant="outline" 
+                className="w-full justify-start"
+                onClick={onNextVideo}
+                disabled={!onNextVideo}
+              >
+                <SkipForward className="h-4 w-4 mr-2" />
+                Next Lecture
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import WelcomePage from "./WelcomePage";
 import AuthForms, { type RegisterData } from "./AuthForms";
 import Dashboard from "./Dashboard";
 import CoursesPage from "./CoursesPage";
 import CourseDetailPage from "./CourseDetailPage";
 import VideoPlayer from "./VideoPlayer";
+import MyCoursesPage from "./MyCoursesPage";
+import LMSContentViewer from "./LMSContentViewer";
+import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
+import { testFirebaseConnection } from "@/utils/firebaseTest";
 
-type AppState = 'welcome' | 'auth' | 'dashboard' | 'courses' | 'course-detail' | 'video-player';
+type AppState = 'welcome' | 'auth' | 'dashboard' | 'courses' | 'course-detail' | 'video-player' | 'my-courses' | 'lms-content';
 
 interface User {
   name: string;
@@ -17,17 +21,20 @@ interface User {
 
 export default function LMSApp() {
   const [currentState, setCurrentState] = useState<AppState>('welcome');
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
-  const [selectedVideoId, setSelectedVideoId] = useState<string>('');
+  const [selectedVideoUrl, setSelectedVideoUrl] = useState<string>('');
+  const { user, userData, loading, login, register, logout } = useAdvancedAuth();
 
-  // todo: remove mock functionality
-  const mockUser: User = {
-    name: "Priya Sharma", 
-    username: "priya_sharma",
-    class: "12",
-    enrolledCourses: ["class-12-physics"]
-  };
+  useEffect(() => {
+    // Test Firebase connection on app load
+    testFirebaseConnection();
+    
+    if (user && userData) {
+      setCurrentState('dashboard');
+    } else if (!loading) {
+      setCurrentState('welcome');
+    }
+  }, [user, userData, loading]);
 
   const handleGetStarted = () => {
     setCurrentState('auth');
@@ -37,33 +44,59 @@ export default function LMSApp() {
     setCurrentState('welcome');
   };
 
-  const handleLogin = (username: string, password: string) => {
-    console.log('Login attempt:', { username, password });
-    // todo: remove mock functionality - implement real authentication
-    setCurrentUser(mockUser);
-    setCurrentState('dashboard');
+  const handleLogin = async (identifier: string, password: string) => {
+    try {
+      await login(identifier, password);
+    } catch (error) {
+      console.error('Login failed:', error);
+    }
   };
 
-  const handleRegister = (userData: RegisterData) => {
-    console.log('Registration successful:', userData);
-    // todo: remove mock functionality - implement real registration
-    const newUser: User = {
-      name: userData.name,
-      username: userData.username,
-      class: userData.class,
-      enrolledCourses: []
-    };
-    setCurrentUser(newUser);
-    setCurrentState('dashboard');
+  const handleRegister = async (registerData: RegisterData) => {
+    try {
+      // Generate a simple device ID
+      const deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const result = await register({
+        name: registerData.name,
+        username: registerData.username,
+        email: registerData.email,
+        phone: registerData.phone,
+        class: registerData.class,
+        password: registerData.password,
+        deviceId: deviceId
+      });
+      
+      if (result.requiresOTP) {
+        // Handle OTP verification if needed
+        console.log('OTP verification required');
+      }
+    } catch (error) {
+      console.error('Registration failed:', error);
+    }
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    setCurrentState('welcome');
+  const handleLogout = async () => {
+    try {
+      await logout();
+      setCurrentState('welcome');
+    } catch (error) {
+      console.error('Logout failed:', error);
+    }
   };
 
   const handleViewCourses = () => {
     setCurrentState('courses');
+  };
+
+  const handleViewMyCourses = () => {
+    console.log('handleViewMyCourses called. Setting state to "my-courses"');
+    setCurrentState('my-courses');
+    console.log('Current state after update:', 'my-courses'); // Log the intended state
+  };
+
+  const handleViewLMSContent = () => {
+    setCurrentState('lms-content');
   };
 
   const handleViewCourse = (courseId: string) => {
@@ -77,17 +110,11 @@ export default function LMSApp() {
 
   const handleEnrollCourse = (courseId: string) => {
     console.log('Enrollment request for course:', courseId);
-    // todo: remove mock functionality - implement real enrollment
-    if (currentUser) {
-      setCurrentUser({
-        ...currentUser,
-        enrolledCourses: [...currentUser.enrolledCourses, courseId]
-      });
-    }
+    // TODO: Implement real enrollment with Firebase
   };
 
-  const handlePlayVideo = (videoId: string) => {
-    setSelectedVideoId(videoId);
+  const handlePlayVideo = (videoUrl: string) => {
+    setSelectedVideoUrl(videoUrl);
     setCurrentState('video-player');
   };
 
@@ -107,19 +134,31 @@ export default function LMSApp() {
     return <WelcomePage onGetStarted={handleGetStarted} />;
   }
 
-  if (currentState === 'auth') {
-    return (
-      <AuthForms
-        onLogin={handleLogin}
-        onRegister={handleRegister}
-        onBack={handleBackToWelcome}
-      />
-    );
+
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading...</div>;
   }
 
-  if (!currentUser) {
+  if (!user || !userData) {
+    if (currentState === 'auth') {
+      return (
+        <AuthForms
+          onLogin={handleLogin}
+          onRegister={handleRegister}
+          onBack={handleBackToWelcome}
+        />
+      );
+    }
     return <WelcomePage onGetStarted={handleGetStarted} />;
   }
+
+  const currentUser: User = {
+    name: userData.name,
+    username: userData.userName || '',
+    class: userData.userClass,
+    enrolledCourses: userData.listOfCourses
+  };
 
   if (currentState === 'dashboard') {
     return (
@@ -129,6 +168,31 @@ export default function LMSApp() {
         onViewCourse={handleViewCourse}
         onEnrollCourse={handleEnrollCourse}
         onViewAllCourses={handleViewAllCourses}
+        onViewMyCourses={handleViewMyCourses}
+        onViewLMSContent={handleViewLMSContent}
+      />
+    );
+  }
+
+  if (currentState === 'lms-content') {
+    return (
+      <LMSContentViewer
+        onBack={handleBackToDashboard}
+        onPlayVideo={(videoId, videoUrl, videoTitle) => {
+          setSelectedVideoUrl(videoUrl);
+          setCurrentState('video-player');
+        }}
+      />
+    );
+  }
+
+  if (currentState === 'my-courses') {
+    return (
+      <MyCoursesPage
+        user={currentUser}
+        onBack={handleBackToDashboard}
+        onLogout={handleLogout}
+        onPlayVideo={handlePlayVideo}
       />
     );
   }
@@ -160,9 +224,9 @@ export default function LMSApp() {
   if (currentState === 'video-player') {
     return (
       <VideoPlayer
-        videoId={selectedVideoId}
+        videoUrl={selectedVideoUrl}
         user={currentUser}
-        onBack={handleBackToCourseDetail}
+        onBack={() => setCurrentState('lms-content')}
         onLogout={handleLogout}
         onNextVideo={() => console.log('Next video')}
         onPreviousVideo={() => console.log('Previous video')}

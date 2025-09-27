@@ -29,6 +29,8 @@ interface DashboardProps {
   onViewCourse: (courseId: string) => void;
   onEnrollCourse: (courseId: string) => void;
   onViewAllCourses?: () => void;
+  onViewMyCourses?: () => void;
+  onViewLMSContent?: () => void;
 }
 
 // todo: remove mock functionality
@@ -86,7 +88,7 @@ const mockPopularCourses = [
   }
 ];
 
-export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse, onViewAllCourses }: DashboardProps) {
+export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse, onViewAllCourses, onViewMyCourses, onViewLMSContent }: DashboardProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -172,9 +174,13 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                     <BookOpen className="h-4 w-4 mr-3" />
                     Dashboard
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start" data-testid="nav-courses">
+                  <Button variant="ghost" className="w-full justify-start" onClick={onViewMyCourses} data-testid="nav-courses">
                     <Play className="h-4 w-4 mr-3" />
                     My Courses
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={onViewLMSContent} data-testid="nav-lms-content">
+                    <BookOpen className="h-4 w-4 mr-3" />
+                    Course Content
                   </Button>
                   <Button variant="ghost" className="w-full justify-start" data-testid="nav-progress">
                     <Award className="h-4 w-4 mr-3" />
