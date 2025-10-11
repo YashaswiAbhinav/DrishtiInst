@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
+import PaymentModal from "./PaymentModal";
 import { 
   BookOpen, 
   Play, 
@@ -24,6 +25,7 @@ interface DashboardProps {
     username: string;
     class: string;
     enrolledCourses: string[];
+    email?: string;
   };
   onLogout: () => void;
   onViewCourse: (courseId: string) => void;
@@ -33,74 +35,84 @@ interface DashboardProps {
   onViewLMSContent?: () => void;
 }
 
-// todo: remove mock functionality
-const mockAnnouncements = [
-  {
-    id: 1,
-    title: "New Chemistry Lab Videos Added",
-    content: "Complete practical demonstrations for Class 11 and 12 students are now available.",
-    date: "2024-01-15",
-    priority: "high"
-  },
-  {
-    id: 2,
-    title: "Physics Mock Test Schedule",
-    content: "Monthly mock tests for JEE preparation starting from next week.",
-    date: "2024-01-14",
-    priority: "medium"
-  },
-  {
-    id: 3,
-    title: "Holiday Schedule Update",
-    content: "Classes will resume on January 20th after the winter break.",
-    date: "2024-01-12",
-    priority: "low"
-  }
-];
+const getLatestAnnouncement = () => ({
+  id: 1,
+  title: "Welcome to Drishti Institute",
+  content: "Start your learning journey with our comprehensive courses designed by expert educators.",
+  date: new Date().toISOString().split('T')[0],
+  priority: "high"
+});
 
-const mockPopularCourses = [
+const getAllCourses = (pricing: Record<string, number> = {}) => [
   {
-    id: "class-12-physics",
-    name: "Class 12 Physics",
-    description: "Complete JEE & Board preparation",
-    students: 2847,
-    videos: 156,
-    duration: "180 hours",
-    thumbnail: "/api/placeholder/300/200"
-  },
-  {
-    id: "class-11-chemistry",
-    name: "Class 11 Chemistry", 
-    description: "Foundation for organic & inorganic chemistry",
-    students: 1924,
-    videos: 134,
-    duration: "160 hours",
-    thumbnail: "/api/placeholder/300/200"
-  },
-  {
-    id: "class-10-maths",
-    name: "Class 10 Mathematics",
-    description: "Board exam preparation with practice tests",
-    students: 3156,
+    id: "Class 9th",
+    name: "Class 9th",
+    description: "Foundation course for Class 9 students",
+    students: 2156,
     videos: 98,
     duration: "120 hours",
-    thumbnail: "/api/placeholder/300/200"
+    price: pricing['Class 9th'] || 2999
+  },
+  {
+    id: "Class 10th",
+    name: "Class 10th",
+    description: "Board exam preparation for Class 10",
+    students: 3156,
+    videos: 134,
+    duration: "150 hours",
+    price: pricing['Class 10th'] || 3999
+  },
+  {
+    id: "Class 11th",
+    name: "Class 11th", 
+    description: "Foundation for JEE & advanced concepts",
+    students: 1924,
+    videos: 156,
+    duration: "180 hours",
+    price: pricing['Class 11th'] || 4999
+  },
+  {
+    id: "Class 12th",
+    name: "Class 12th",
+    description: "Complete JEE & Board preparation",
+    students: 2847,
+    videos: 178,
+    duration: "200 hours",
+    price: pricing['Class 12th'] || 5999
   }
 ];
 
 export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse, onViewAllCourses, onViewMyCourses, onViewLMSContent }: DashboardProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pricing, setPricing] = useState<Record<string, number>>({});
+  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number }>({ isOpen: false, courseName: '', price: 0 });
 
-  const enrolledCourseDetails = mockPopularCourses.filter(course => 
+  useEffect(() => {
+    fetchCoursePricing();
+  }, []);
+
+  const fetchCoursePricing = async () => {
+    try {
+      const response = await fetch('/api/course-pricing');
+      const data = await response.json();
+      setPricing(data.pricing);
+    } catch (error) {
+      console.error('Error fetching pricing:', error);
+    }
+  };
+
+  const allCourses = getAllCourses(pricing);
+  
+  const enrolledCourseDetails = allCourses.filter(course => 
     user.enrolledCourses.includes(course.id)
   );
 
-  const availableCourses = mockPopularCourses.filter(course => 
+  const availableCourses = allCourses.filter(course => 
     !user.enrolledCourses.includes(course.id)
   );
 
-  const displayCourses = enrolledCourseDetails.length > 0 ? enrolledCourseDetails : availableCourses;
+  const displayCourses = enrolledCourseDetails.length > 0 ? enrolledCourseDetails : availableCourses.slice(0, 2);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -174,7 +186,11 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                     <BookOpen className="h-4 w-4 mr-3" />
                     Dashboard
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={onViewMyCourses} data-testid="nav-courses">
+                  <Button variant="ghost" className="w-full justify-start" onClick={onViewAllCourses} data-testid="nav-all-courses">
+                    <BookOpen className="h-4 w-4 mr-3" />
+                    Courses
+                  </Button>
+                  <Button variant="ghost" className="w-full justify-start" onClick={onViewMyCourses} data-testid="nav-my-courses">
                     <Play className="h-4 w-4 mr-3" />
                     My Courses
                   </Button>
@@ -257,8 +273,8 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm">{mockAnnouncements[0].content}</p>
-                  <p className="text-xs text-muted-foreground mt-2">{mockAnnouncements[0].date}</p>
+                  <p className="text-sm">{getLatestAnnouncement().content}</p>
+                  <p className="text-xs text-muted-foreground mt-2">{getLatestAnnouncement().date}</p>
                 </CardContent>
               </Card>
             </motion.div>
@@ -320,14 +336,18 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                             Continue Learning
                           </Button>
                         ) : (
-                          <Button 
-                            onClick={() => onEnrollCourse(course.id)} 
-                            variant="outline" 
-                            className="w-full"
-                            data-testid={`button-enroll-course-${course.id}`}
-                          >
-                            Enroll Now
-                          </Button>
+                          <div className="space-y-2">
+                            <div className="text-center">
+                              <span className="text-2xl font-bold text-primary">₹{course.price.toLocaleString()}</span>
+                            </div>
+                            <Button 
+                              onClick={() => setPaymentModal({ isOpen: true, courseName: course.id, price: course.price })} 
+                              className="w-full"
+                              data-testid={`button-enroll-course-${course.id}`}
+                            >
+                              Enroll Now
+                            </Button>
+                          </div>
                         )}
                       </div>
                     </CardContent>
@@ -338,6 +358,18 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
           </div>
         </div>
       </div>
+
+      <PaymentModal
+        isOpen={paymentModal.isOpen}
+        onClose={() => setPaymentModal({ isOpen: false, courseName: '', price: 0 })}
+        courseName={paymentModal.courseName}
+        price={paymentModal.price}
+        userEmail={user.email || ''}
+        onPaymentSuccess={(courseName) => {
+          onEnrollCourse(courseName);
+          setPaymentModal({ isOpen: false, courseName: '', price: 0 });
+        }}
+      />
     </motion.div>
   );
 }

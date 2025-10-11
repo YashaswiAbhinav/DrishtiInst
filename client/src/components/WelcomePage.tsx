@@ -39,6 +39,8 @@ import teacherImage from "@assets/generated_images/Teacher_founder_professional_
 import studentsImage from "@assets/generated_images/Student_success_group_photo_126f6c66.png";
 import appMockupImage from "@assets/generated_images/Mobile_app_advertisement_mockup_19aa6e82.png";
 
+import ProfessorSection from "./ProfessorSection";
+
 interface WelcomePageProps {
   onGetStarted: () => void;
 }
@@ -614,6 +616,8 @@ export default function WelcomePage({ onGetStarted }: WelcomePageProps) {
           </div>
         </div>
       </section>
+
+      <ProfessorSection />
 
       {/* Testimonials Carousel */}
       <section className="py-20 bg-muted/30">

@@ -21,6 +21,18 @@ import {
   Atom,
   Dna
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+
+interface Course {
+    id: string;
+    name: string;
+    description: string;
+    subjects: string[];
+    students: number;
+    videos: number;
+    duration: string;
+    price: string;
+}
 
 interface CoursesPageProps {
   user: {
@@ -34,178 +46,6 @@ interface CoursesPageProps {
   onViewCourseDetail: (courseId: string) => void;
   onEnrollCourse: (courseId: string) => void;
 }
-
-// todo: remove mock functionality
-const mockCourses = {
-  "9": [
-    {
-      id: "class-9-physics",
-      name: "Class 9 Physics",
-      description: "Foundation concepts in physics with interactive demos",
-      subjects: ["Mechanics", "Heat", "Light", "Sound"],
-      students: 1856,
-      videos: 76,
-      duration: "80 hours",
-      price: "₹4,999"
-    },
-    {
-      id: "class-9-chemistry", 
-      name: "Class 9 Chemistry",
-      description: "Basic chemistry concepts and practical experiments",
-      subjects: ["Atoms & Molecules", "Matter", "Natural Resources"],
-      students: 1654,
-      videos: 68,
-      duration: "75 hours", 
-      price: "₹4,999"
-    },
-    {
-      id: "class-9-maths",
-      name: "Class 9 Mathematics",
-      description: "Number systems, algebra, geometry fundamentals",
-      subjects: ["Number Systems", "Algebra", "Geometry", "Statistics"],
-      students: 2156,
-      videos: 89,
-      duration: "90 hours",
-      price: "₹4,999"
-    },
-    {
-      id: "class-9-biology",
-      name: "Class 9 Biology", 
-      description: "Life processes and biological diversity",
-      subjects: ["Life Processes", "Natural Resources", "Diversity"],
-      students: 1334,
-      videos: 62,
-      duration: "70 hours",
-      price: "₹4,999"
-    }
-  ],
-  "10": [
-    {
-      id: "class-10-physics",
-      name: "Class 10 Physics",
-      description: "Board exam preparation with practical applications",
-      subjects: ["Light", "Electricity", "Magnetic Effects", "Management"],
-      students: 2847,
-      videos: 96,
-      duration: "100 hours",
-      price: "₹5,999"
-    },
-    {
-      id: "class-10-chemistry",
-      name: "Class 10 Chemistry", 
-      description: "Acids, bases, metals and carbon compounds",
-      subjects: ["Acids & Bases", "Metals", "Carbon Compounds", "Periodic Table"],
-      students: 2456,
-      videos: 88,
-      duration: "95 hours",
-      price: "₹5,999"
-    },
-    {
-      id: "class-10-maths",
-      name: "Class 10 Mathematics",
-      description: "Complete board preparation with problem solving",
-      subjects: ["Real Numbers", "Polynomials", "Trigonometry", "Statistics"],
-      students: 3156,
-      videos: 112,
-      duration: "120 hours", 
-      price: "₹5,999"
-    },
-    {
-      id: "class-10-biology",
-      name: "Class 10 Biology",
-      description: "Life processes, heredity and evolution",
-      subjects: ["Life Processes", "Control & Coordination", "Heredity", "Evolution"],
-      students: 1876,
-      videos: 78,
-      duration: "85 hours",
-      price: "₹5,999"
-    }
-  ],
-  "11": [
-    {
-      id: "class-11-physics",
-      name: "Class 11 Physics",
-      description: "JEE foundation with advanced concepts",
-      subjects: ["Mechanics", "Thermodynamics", "Waves", "Oscillations"],
-      students: 2234,
-      videos: 134,
-      duration: "150 hours",
-      price: "₹7,999"
-    },
-    {
-      id: "class-11-chemistry",
-      name: "Class 11 Chemistry",
-      description: "Organic, inorganic and physical chemistry basics",
-      subjects: ["Atomic Structure", "Chemical Bonding", "Thermodynamics", "Organic"],
-      students: 1924,
-      videos: 126,
-      duration: "145 hours",
-      price: "₹7,999"
-    },
-    {
-      id: "class-11-maths",
-      name: "Class 11 Mathematics",
-      description: "Calculus, algebra and coordinate geometry",
-      subjects: ["Sets", "Functions", "Trigonometry", "Sequences", "Limits"],
-      students: 2567,
-      videos: 145,
-      duration: "160 hours",
-      price: "₹7,999"
-    },
-    {
-      id: "class-11-biology",
-      name: "Class 11 Biology",
-      description: "Diversity of living world and structural organization",
-      subjects: ["Diversity", "Structural Organization", "Cell", "Plant Physiology"],
-      students: 1445,
-      videos: 98,
-      duration: "120 hours",
-      price: "₹7,999"
-    }
-  ],
-  "12": [
-    {
-      id: "class-12-physics", 
-      name: "Class 12 Physics",
-      description: "Complete JEE & Board preparation",
-      subjects: ["Electrostatics", "Current Electricity", "Magnetism", "Optics", "Modern Physics"],
-      students: 2847,
-      videos: 156,
-      duration: "180 hours",
-      price: "₹8,999"
-    },
-    {
-      id: "class-12-chemistry",
-      name: "Class 12 Chemistry",
-      description: "Advanced organic, inorganic and physical chemistry",
-      subjects: ["Solid State", "Solutions", "Electrochemistry", "Chemical Kinetics", "Organic"],
-      students: 2456,
-      videos: 148,
-      duration: "175 hours",
-      price: "₹8,999"
-    },
-    {
-      id: "class-12-maths",
-      name: "Class 12 Mathematics", 
-      description: "Calculus, algebra and advanced problem solving",
-      subjects: ["Relations", "Inverse Trigonometry", "Matrices", "Determinants", "Integration"],
-      students: 2987,
-      videos: 167,
-      duration: "190 hours",
-      price: "₹8,999"
-    },
-    {
-      id: "class-12-biology",
-      name: "Class 12 Biology",
-      description: "Human physiology, genetics and biotechnology",
-      subjects: ["Reproduction", "Genetics", "Evolution", "Biotechnology", "Ecology"],
-      students: 1756,
-      videos: 123,
-      duration: "140 hours",
-      price: "₹8,999"
-    }
-  ]
-};
 
 const getSubjectIcon = (subject: string) => {
   if (subject.toLowerCase().includes('physics') || subject.toLowerCase().includes('mechanics') || subject.toLowerCase().includes('electricity')) {
@@ -227,11 +67,84 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeClass, setActiveClass] = useState("12"); // Default to show Class 12 (most popular)
+  const queryClient = useQueryClient();
+
+  const { data: courses, isLoading } = useQuery({
+    queryKey: ['all-courses'],
+    queryFn: async () => {
+      const [coursesRes, pricingRes] = await Promise.all([
+        fetch('/api/courses'),
+        fetch('/api/course-pricing')
+      ]);
+      
+      const coursesData = await coursesRes.json();
+      const pricingData = await pricingRes.json();
+      
+      const courseStats = {
+        'Class 9th': { students: 2156, videos: 98, duration: '120 hours' },
+        'Class 10th': { students: 3156, videos: 134, duration: '150 hours' },
+        'Class 11th': { students: 1924, videos: 156, duration: '180 hours' },
+        'Class 12th': { students: 2847, videos: 178, duration: '200 hours' }
+      };
+      
+      return coursesData.courses.map((courseName: string) => ({
+        id: courseName,
+        name: courseName,
+        description: `Complete ${courseName} curriculum with all subjects`,
+        subjects: ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
+        students: courseStats[courseName as keyof typeof courseStats]?.students || 1000,
+        videos: courseStats[courseName as keyof typeof courseStats]?.videos || 100,
+        duration: courseStats[courseName as keyof typeof courseStats]?.duration || '100 hours',
+        price: `₹${pricingData.pricing[courseName]?.toLocaleString() || '2999'}`
+      })) as Course[];
+    }
+  });
+
+  const { mutate: enrollInCourse } = useMutation({
+    mutationFn: async (courseName: string) => {
+      const res = await fetch('/api/enroll', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ courseName }),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to enroll in course');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courses'] });
+    },
+  });
+
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.documentElement.classList.toggle('dark');
   };
+
+  const handleEnrollCourse = async (courseName: string) => {
+    try {
+      await enrollInCourse(courseName);
+      // Call the parent component's enroll handler to update Firebase
+      onEnrollCourse(courseName);
+    } catch (error) {
+      console.error('Enrollment failed:', error);
+    }
+  };
+
+  const coursesByClass = courses?.reduce((acc, course) => {
+    const className = course.name.match(/Class (\d+)/)?.[1];
+    if (className) {
+      if (!acc[className]) {
+        acc[className] = [];
+      }
+      acc[className].push(course);
+    }
+    return acc;
+  }, {} as Record<string, Course[]>);
+
 
   return (
     <div className={`min-h-screen bg-background ${darkMode ? 'dark' : ''}`}>
@@ -257,7 +170,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
               <span className="text-xl font-semibold">Drishti Institute</span>
             </div>
           </div>
-          
+
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="icon" data-testid="button-notifications">
               <Bell className="h-5 w-5" />
@@ -295,7 +208,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                   Browse by Class
                 </h3>
                 <div className="space-y-2">
-                  {Object.keys(mockCourses).map((classNum) => (
+                  {coursesByClass && Object.keys(coursesByClass).map((classNum) => (
                     <Button
                       key={classNum}
                       variant={activeClass === classNum ? "default" : "ghost"}
@@ -309,7 +222,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                   ))}
                 </div>
               </div>
-              
+
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-3">
                   Your Learning
@@ -331,7 +244,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
 
         {/* Sidebar Overlay */}
         {sidebarOpen && (
-          <div 
+          <div
             className="fixed inset-0 bg-black/50 z-40 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
@@ -359,12 +272,13 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                 <TabsTrigger value="12" data-testid="tab-class-12">Class 12</TabsTrigger>
               </TabsList>
 
-              {Object.entries(mockCourses).map(([classNum, courses]) => (
+              {isLoading && <div>Loading...</div>}
+              {coursesByClass && Object.entries(coursesByClass).map(([classNum, courses]) => (
                 <TabsContent key={classNum} value={classNum} className="mt-6">
                   <div className="grid md:grid-cols-2 gap-6">
                     {courses.map((course) => {
                       const isEnrolled = user.enrolledCourses.includes(course.id);
-                      
+
                       return (
                         <Card key={course.id} className="hover-elevate">
                           <CardHeader>
@@ -394,7 +308,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                                   ))}
                                 </div>
                               </div>
-                              
+
                               {/* Stats */}
                               <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
                                 <div className="flex items-center">
@@ -410,20 +324,20 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                                   {course.duration}
                                 </div>
                               </div>
-                              
+
                               {/* Action Button */}
                               {isEnrolled ? (
-                                <Button 
-                                  onClick={() => onViewCourseDetail(course.id)} 
+                                <Button
+                                  onClick={() => onViewCourseDetail(course.id)}
                                   className="w-full"
                                   data-testid={`button-view-course-${course.id}`}
                                 >
                                   Continue Learning
                                 </Button>
                               ) : (
-                                <Button 
-                                  onClick={() => onEnrollCourse(course.id)} 
-                                  variant="outline" 
+                                <Button
+                                  onClick={() => handleEnrollCourse(course.id)}
+                                  variant="outline"
                                   className="w-full"
                                   data-testid={`button-enroll-course-${course.id}`}
                                 >
@@ -447,7 +361,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                   Flexible Learning for Every Student
                 </h3>
                 <p className="text-muted-foreground text-sm mb-4">
-                  Students can enroll in any course regardless of their current class level. 
+                  Students can enroll in any course regardless of their current class level.
                   Perfect for advanced learners or those who need foundational review.
                 </p>
                 <div className="flex flex-wrap gap-4">

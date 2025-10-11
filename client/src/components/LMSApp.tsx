@@ -9,14 +9,17 @@ import MyCoursesPage from "./MyCoursesPage";
 import LMSContentViewer from "./LMSContentViewer";
 import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
 import { testFirebaseConnection } from "@/utils/firebaseTest";
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-type AppState = 'welcome' | 'auth' | 'dashboard' | 'courses' | 'course-detail' | 'video-player' | 'my-courses' | 'lms-content';
+type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'my-courses' | 'lms-content';
 
 interface User {
   name: string;
   username: string;
   class: string;
   enrolledCourses: string[];
+  email?: string;
 }
 
 export default function LMSApp() {
@@ -105,12 +108,29 @@ export default function LMSApp() {
   };
 
   const handleViewAllCourses = () => {
-    setCurrentState('courses');
+    setCurrentState('all-courses');
   };
 
-  const handleEnrollCourse = (courseId: string) => {
-    console.log('Enrollment request for course:', courseId);
-    // TODO: Implement real enrollment with Firebase
+  const handleEnrollCourse = async (courseId: string) => {
+    try {
+      if (!user || !userData) return;
+      
+      // Update user's enrolled courses in Firebase
+      const updatedCourses = [...userData.listOfCourses, courseId];
+      await updateDoc(doc(db, 'users', user.uid), {
+        listOfCourses: updatedCourses
+      });
+      
+      // Update local state
+      setUserData({
+        ...userData,
+        listOfCourses: updatedCourses
+      });
+      
+      console.log('Successfully enrolled in:', courseId);
+    } catch (error) {
+      console.error('Enrollment failed:', error);
+    }
   };
 
   const handlePlayVideo = (videoUrl: string) => {
@@ -123,7 +143,7 @@ export default function LMSApp() {
   };
 
   const handleBackToCourses = () => {
-    setCurrentState('courses');
+    setCurrentState('all-courses');
   };
 
   const handleBackToCourseDetail = () => {
@@ -157,7 +177,8 @@ export default function LMSApp() {
     name: userData.name,
     username: userData.userName || '',
     class: userData.userClass,
-    enrolledCourses: userData.listOfCourses
+    enrolledCourses: userData.listOfCourses,
+    email: userData.email || ''
   };
 
   if (currentState === 'dashboard') {
@@ -178,6 +199,7 @@ export default function LMSApp() {
     return (
       <LMSContentViewer
         onBack={handleBackToDashboard}
+        user={currentUser}
         onPlayVideo={(videoId, videoUrl, videoTitle) => {
           setSelectedVideoUrl(videoUrl);
           setCurrentState('video-player');
@@ -197,7 +219,7 @@ export default function LMSApp() {
     );
   }
 
-  if (currentState === 'courses') {
+  if (currentState === 'all-courses') {
     return (
       <CoursesPage
         user={currentUser}

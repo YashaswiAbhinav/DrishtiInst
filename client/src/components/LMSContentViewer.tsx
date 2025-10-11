@@ -32,9 +32,12 @@ interface DriveItem {
 interface LMSContentViewerProps {
   onBack: () => void;
   onPlayVideo?: (videoId: string, videoUrl: string, videoTitle: string) => void;
+  user?: {
+    enrolledCourses: string[];
+  };
 }
 
-export default function LMSContentViewer({ onBack, onPlayVideo }: LMSContentViewerProps) {
+export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSContentViewerProps) {
   const [courses, setCourses] = useState<DriveItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
@@ -42,16 +45,39 @@ export default function LMSContentViewer({ onBack, onPlayVideo }: LMSContentView
 
   useEffect(() => {
     fetchCourses();
-  }, []);
+  }, [user]);
 
   const fetchCourses = async () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch('/api/courses');
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!user || user.enrolledCourses.length === 0) {
+        // Fallback: try to fetch all courses from root folder
+        await fetch('/api/cache/clear', { method: 'POST' });
+        const response = await fetch(`/api/courses`);
+        if (response.ok) {
+          const data = await response.json();
+          // For now, show empty since user has no enrollments
+          setCourses([]);
+        } else {
+          setCourses([]);
+        }
+        setLoading(false);
+        return;
       }
+      
+      const enrolledCoursesParam = user.enrolledCourses.join(',');
+      
+      // Clear cache first
+      await fetch('/api/cache/clear', { method: 'POST' });
+      
+      const response = await fetch(`/api/my-courses?enrolledCourses=${encodeURIComponent(enrolledCoursesParam)}&t=${Date.now()}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+      
       const data = await response.json();
       setCourses(data.courses || []);
     } catch (error) {
@@ -394,6 +420,23 @@ export default function LMSContentViewer({ onBack, onPlayVideo }: LMSContentView
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
+              <Button 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('/api/test-drive');
+                    const data = await response.json();
+                    console.log('Drive test result:', data);
+                    alert(`Drive test: ${data.success ? 'Success' : 'Failed'}\nCourses found: ${data.courses?.length || 0}`);
+                  } catch (error) {
+                    console.error('Drive test failed:', error);
+                    alert('Drive test failed - check console');
+                  }
+                }}
+                variant="outline" 
+                size="sm"
+              >
+                Test Drive
+              </Button>
               <Badge variant="secondary">
                 {courses.length} courses
               </Badge>
@@ -418,14 +461,26 @@ export default function LMSContentViewer({ onBack, onPlayVideo }: LMSContentView
                 >
                   <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-6" />
                 </motion.div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-3">No Courses Found</h3>
+                <h3 className="text-2xl font-bold text-gray-900 mb-3">
+                  {!user || user.enrolledCourses.length === 0 ? 'No Enrolled Courses' : 'No Courses Found'}
+                </h3>
                 <p className="text-gray-600 mb-6 max-w-md mx-auto">
-                  No course content is available. Please check your Google Drive setup and ensure folders are properly shared.
+                  {!user || user.enrolledCourses.length === 0 
+                    ? 'You need to enroll in courses first to access content.' 
+                    : 'No course content is available. Please check your Google Drive setup.'}
                 </p>
-                <Button onClick={fetchCourses} className="bg-blue-600 hover:bg-blue-700">
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Retry Loading
-                </Button>
+                <div className="space-x-2">
+                  <Button onClick={onBack} variant="outline">
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Go Back
+                  </Button>
+                  {user && user.enrolledCourses.length > 0 && (
+                    <Button onClick={fetchCourses} className="bg-blue-600 hover:bg-blue-700">
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Retry Loading
+                    </Button>
+                  )}
+                </div>
               </CardContent>
             </Card>
           </motion.div>
@@ -437,8 +492,8 @@ export default function LMSContentViewer({ onBack, onPlayVideo }: LMSContentView
               transition={{ duration: 0.5 }}
               className="text-center"
             >
-              <h2 className="text-3xl font-bold text-gray-900 mb-2">Available Courses</h2>
-              <p className="text-gray-600">Explore our comprehensive course library with interactive content</p>
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">Your Enrolled Courses</h2>
+              <p className="text-gray-600">Access content for courses you're enrolled in</p>
             </motion.div>
             
             <div className="grid gap-6">

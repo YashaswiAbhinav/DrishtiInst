@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, BookOpen, Play, Folder, Video } from 'lucide-react';
+import { ArrowLeft, BookOpen, Play, Folder, Video, RefreshCw } from 'lucide-react';
 
 interface User {
   name: string;
@@ -42,19 +42,28 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
 
   const fetchAvailableCourses = async () => {
     try {
-      const response = await fetch('/api/courses');
-      const data = await response.json();
-      setAvailableCourses(data.courses || []);
+      // Only show enrolled courses for this user
+      setAvailableCourses(user.enrolledCourses);
     } catch (error) {
-      console.error('Error fetching available courses:', error);
-      setAvailableCourses(['Class 9th', 'Class 10th', 'Class 11th', 'Class 12th']);
+      console.error('Error setting available courses:', error);
+      setAvailableCourses([]);
     }
   };
 
-  const fetchCourseSubjects = async (courseName: string) => {
+  const fetchCourseSubjects = async (courseName: string, clearCache = false) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/drive/course/${encodeURIComponent(courseName)}`);
+      if (clearCache) {
+        await fetch('/api/cache/clear', { method: 'POST' });
+      }
+      
+      const enrolledCoursesParam = user.enrolledCourses.join(',');
+      const response = await fetch(`/api/drive/course/${encodeURIComponent(courseName)}?enrolledCourses=${enrolledCoursesParam}&t=${Date.now()}`);
+      
+      if (!response.ok) {
+        throw new Error(`Access denied: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       setItems(data.subjects || []);
     } catch (error) {
@@ -65,10 +74,20 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
     }
   };
 
-  const fetchFolderContents = async (folderId: string) => {
+  const fetchFolderContents = async (folderId: string, clearCache = false) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/drive/folder/${folderId}`);
+      if (clearCache) {
+        await fetch('/api/cache/clear', { method: 'POST' });
+      }
+      
+      const enrolledCoursesParam = user.enrolledCourses.join(',');
+      const response = await fetch(`/api/drive/folder/${folderId}?enrolledCourses=${enrolledCoursesParam}&t=${Date.now()}`);
+      
+      if (!response.ok) {
+        throw new Error(`Access denied: ${response.statusText}`);
+      }
+      
       const data = await response.json();
       setItems(data.contents || []);
     } catch (error) {
@@ -83,21 +102,21 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
     setSelectedCourse(courseName);
     setCurrentView('subjects');
     setBreadcrumb(['My Courses', courseName]);
-    fetchCourseSubjects(courseName);
+    fetchCourseSubjects(courseName, true); // Clear cache for fresh data
   };
 
   const handleSubjectClick = (subject: DriveItem) => {
     setSelectedSubject(subject);
     setCurrentView('chapters');
     setBreadcrumb(['My Courses', selectedCourse, subject.name]);
-    fetchFolderContents(subject.id);
+    fetchFolderContents(subject.id, true); // Clear cache for fresh data
   };
 
   const handleChapterClick = (chapter: DriveItem) => {
     setSelectedChapter(chapter);
     setCurrentView('lectures');
     setBreadcrumb(['My Courses', selectedCourse, selectedSubject?.name || '', chapter.name]);
-    fetchFolderContents(chapter.id);
+    fetchFolderContents(chapter.id, true); // Clear cache for fresh data
   };
 
   const handleLectureClick = (lecture: DriveItem) => {
@@ -147,6 +166,22 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-sm text-gray-600">Welcome, {user.name}</span>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => {
+                  if (currentView === 'subjects' && selectedCourse) {
+                    fetchCourseSubjects(selectedCourse, true);
+                  } else if (currentView === 'chapters' && selectedSubject) {
+                    fetchFolderContents(selectedSubject.id, true);
+                  } else if (currentView === 'lectures' && selectedChapter) {
+                    fetchFolderContents(selectedChapter.id, true);
+                  }
+                }}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
               <Button variant="outline" onClick={onLogout}>Logout</Button>
             </div>
           </div>
@@ -241,22 +276,13 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
         )}
 
         {currentView === 'courses' && !loading && user.enrolledCourses.length === 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {availableCourses.map((course) => (
-              <div key={course}>
-                <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleCourseClick(course)}>
-                  <CardHeader>
-                    <CardTitle className="flex items-center space-x-2">
-                      <BookOpen className="h-5 w-5 text-blue-600" />
-                      <span>{course}</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-gray-600">Click to view subjects</p>
-                  </CardContent>
-                </Card>
-              </div>
-            ))}
+          <div className="text-center py-12">
+            <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-gray-700 mb-2">No Enrolled Courses</h3>
+            <p className="text-gray-500 mb-4">You haven't enrolled in any courses yet.</p>
+            <Button onClick={onBack} variant="outline">
+              Go to Dashboard to Enroll
+            </Button>
           </div>
         )}
       </main>
