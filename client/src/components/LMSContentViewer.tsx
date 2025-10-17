@@ -5,29 +5,18 @@ import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ChevronRight, 
-  ChevronDown, 
   BookOpen, 
   Folder, 
   Video, 
-  FileText,
   Play,
-  ExternalLink,
   RefreshCw,
   Clock,
   Users,
   Star,
   ArrowLeft
 } from 'lucide-react';
-
-interface DriveItem {
-  id: string;
-  name: string;
-  type: 'folder' | 'file';
-  createdTime?: string;
-  modifiedTime?: string;
-  link?: string;
-  children?: DriveItem[];
-}
+import { firebaseContentService } from '@/services/firebaseContentService';
+import type { Course, Subject, Chapter, Lecture } from '../../../shared/firebaseTypes';
 
 interface LMSContentViewerProps {
   onBack: () => void;
@@ -37,8 +26,16 @@ interface LMSContentViewerProps {
   };
 }
 
+interface CourseWithContent extends Course {
+  subjects?: (Subject & {
+    chapters?: (Chapter & {
+      lectures?: Lecture[];
+    })[];
+  })[];
+}
+
 export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSContentViewerProps) {
-  const [courses, setCourses] = useState<DriveItem[]>([]);
+  const [courses, setCourses] = useState<CourseWithContent[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [error, setError] = useState<string>('');
@@ -52,48 +49,52 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
     setError('');
     try {
       if (!user || user.enrolledCourses.length === 0) {
-        // Fallback: try to fetch all courses from root folder
-        await fetch('/api/cache/clear', { method: 'POST' });
-        const response = await fetch(`/api/courses`);
-        if (response.ok) {
-          const data = await response.json();
-          // For now, show empty since user has no enrollments
-          setCourses([]);
-        } else {
-          setCourses([]);
-        }
+        setCourses([]);
         setLoading(false);
         return;
       }
       
-      const enrolledCoursesParam = user.enrolledCourses.join(',');
+      // Fetch courses from Firebase based on enrolled courses
+      const allCourses = await firebaseContentService.getAllCourses();
+      console.log('All courses from Firebase:', allCourses);
+      const enrolledCourses = allCourses.filter(course => {
+        const isEnrolled = user.enrolledCourses.some(enrolled => {
+          // Match by clas field: "Class 10th" matches "Class_10"
+          const normalizedEnrolled = enrolled.replace(/\s+/g, '_').replace('th', '').replace('st', '').replace('nd', '').replace('rd', '');
+          const normalizedClas = course.clas?.replace(/\s+/g, '_');
+          return normalizedClas?.toLowerCase() === normalizedEnrolled.toLowerCase();
+        });
+        console.log(`Course ${course.name} (${course.clas}) enrolled:`, isEnrolled);
+        return isEnrolled;
+      });
+      console.log('Enrolled courses:', enrolledCourses);
       
-      // Clear cache first
-      await fetch('/api/cache/clear', { method: 'POST' });
+      // Fetch nested content for each enrolled course
+      const coursesWithContent = await Promise.all(
+        enrolledCourses.map(async (course) => {
+          const subjects = await firebaseContentService.getSubjectsByCourseId(course.id!);
+          const subjectsWithContent = await Promise.all(
+            subjects.map(async (subject) => {
+              const chapters = await firebaseContentService.getChaptersBySubjectId(course.id!, subject.id!);
+              const chaptersWithContent = await Promise.all(
+                chapters.map(async (chapter) => {
+                  const lectures = await firebaseContentService.getLecturesByChapterId(course.id!, subject.id!, chapter.id!);
+                  return { ...chapter, lectures };
+                })
+              );
+              return { ...subject, chapters: chaptersWithContent };
+            })
+          );
+          return { ...course, subjects: subjectsWithContent };
+        })
+      );
       
-      const response = await fetch(`/api/my-courses?enrolledCourses=${encodeURIComponent(enrolledCoursesParam)}&t=${Date.now()}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
-      setCourses(data.courses || []);
+      setCourses(coursesWithContent);
     } catch (error) {
       console.error('Error fetching courses:', error);
       setError(error instanceof Error ? error.message : 'Failed to fetch courses');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const clearCache = async () => {
-    try {
-      await fetch('/api/cache/clear', { method: 'POST' });
-      fetchCourses();
-    } catch (error) {
-      console.error('Error clearing cache:', error);
     }
   };
 
@@ -107,44 +108,17 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
     setExpandedItems(newExpanded);
   };
 
-  const getFileIcon = (item: DriveItem) => {
-    if (item.type === 'folder') {
-      return <Folder className="h-4 w-4 text-blue-600" />;
-    }
-    
-    const name = item.name.toLowerCase();
-    if (name.includes('.mp4') || name.includes('.avi') || name.includes('.mov')) {
-      return <Video className="h-4 w-4 text-red-600" />;
-    }
-    return <FileText className="h-4 w-4 text-gray-600" />;
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
-  };
-
-  const handleItemClick = (item: DriveItem) => {
-    if (item.type === 'folder') {
-      toggleExpanded(item.id);
-    } else {
-      // Handle video file click
-      const embedUrl = `https://drive.google.com/file/d/${item.id}/preview`;
-      if (onPlayVideo) {
-        onPlayVideo(item.id, embedUrl, item.name);
-      }
+  const handleLectureClick = (lecture: Lecture) => {
+    if (onPlayVideo && lecture.videoUrl) {
+      onPlayVideo(lecture.id!, lecture.videoUrl, lecture.name);
     }
   };
 
-  const renderCourseCard = (course: DriveItem) => {
-    const subjectCount = course.children?.length || 0;
-    const totalLectures = course.children?.reduce((acc, subject) => {
-      return acc + (subject.children?.reduce((subAcc, chapter) => {
-        return subAcc + (chapter.children?.filter(item => item.type === 'file').length || 0);
+  const renderCourseCard = (course: CourseWithContent) => {
+    const subjectCount = course.subjects?.length || 0;
+    const totalLectures = course.subjects?.reduce((acc, subject) => {
+      return acc + (subject.chapters?.reduce((subAcc, chapter) => {
+        return subAcc + (chapter.lectures?.length || 0);
       }, 0) || 0);
     }, 0) || 0;
 
@@ -197,12 +171,12 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
               </div>
               
               <Button 
-                onClick={() => toggleExpanded(course.id)}
+                onClick={() => toggleExpanded(course.id!)}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white"
               >
-                {expandedItems.has(course.id) ? 'Hide Subjects' : 'View Subjects'}
+                {expandedItems.has(course.id!) ? 'Hide Subjects' : 'View Subjects'}
                 <ChevronRight className={`h-4 w-4 ml-2 transition-transform ${
-                  expandedItems.has(course.id) ? 'rotate-90' : ''
+                  expandedItems.has(course.id!) ? 'rotate-90' : ''
                 }`} />
               </Button>
             </div>
@@ -210,7 +184,7 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
         </Card>
         
         <AnimatePresence>
-          {expandedItems.has(course.id) && course.children && (
+          {expandedItems.has(course.id!) && course.subjects && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -218,7 +192,7 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
               transition={{ duration: 0.3 }}
               className="mt-4 ml-6 space-y-3"
             >
-              {course.children.map(subject => (
+              {course.subjects.map(subject => (
                 <div key={subject.id}>
                   {renderSubjectCard(subject, course.name)}
                 </div>
@@ -230,10 +204,10 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
     );
   };
 
-  const renderSubjectCard = (subject: DriveItem, courseName: string) => {
-    const chapterCount = subject.children?.length || 0;
-    const lectureCount = subject.children?.reduce((acc, chapter) => {
-      return acc + (chapter.children?.filter(item => item.type === 'file').length || 0);
+  const renderSubjectCard = (subject: Subject & { chapters?: (Chapter & { lectures?: Lecture[] })[] }, courseName: string) => {
+    const chapterCount = subject.chapters?.length || 0;
+    const lectureCount = subject.chapters?.reduce((acc, chapter) => {
+      return acc + (chapter.lectures?.length || 0);
     }, 0) || 0;
 
     return (
@@ -258,14 +232,14 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => toggleExpanded(subject.id)}
+                onClick={() => toggleExpanded(subject.id!)}
               >
-                {expandedItems.has(subject.id) ? 'Hide' : 'Show'} Chapters
+                {expandedItems.has(subject.id!) ? 'Hide' : 'Show'} Chapters
               </Button>
             </div>
             
             <AnimatePresence>
-              {expandedItems.has(subject.id) && subject.children && (
+              {expandedItems.has(subject.id!) && subject.chapters && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -273,7 +247,7 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
                   transition={{ duration: 0.2 }}
                   className="mt-4 space-y-2"
                 >
-                  {subject.children.map(chapter => (
+                  {subject.chapters.map(chapter => (
                     <div key={chapter.id}>
                       {renderChapterCard(chapter, courseName, subject.name)}
                     </div>
@@ -287,8 +261,8 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
     );
   };
 
-  const renderChapterCard = (chapter: DriveItem, courseName: string, subjectName: string) => {
-    const lectureCount = chapter.children?.filter(item => item.type === 'file').length || 0;
+  const renderChapterCard = (chapter: Chapter & { lectures?: Lecture[] }, courseName: string, subjectName: string) => {
+    const lectureCount = chapter.lectures?.length || 0;
 
     return (
       <motion.div
@@ -310,15 +284,15 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
               <Button 
                 variant="ghost" 
                 size="sm"
-                onClick={() => toggleExpanded(chapter.id)}
+                onClick={() => toggleExpanded(chapter.id!)}
                 className="text-orange-600 hover:text-orange-700"
               >
-                {expandedItems.has(chapter.id) ? 'Hide' : 'Show'} Lectures
+                {expandedItems.has(chapter.id!) ? 'Hide' : 'Show'} Lectures
               </Button>
             </div>
             
             <AnimatePresence>
-              {expandedItems.has(chapter.id) && chapter.children && (
+              {expandedItems.has(chapter.id!) && chapter.lectures && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
@@ -326,14 +300,14 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
                   transition={{ duration: 0.2 }}
                   className="mt-3 space-y-2"
                 >
-                  {chapter.children.filter(item => item.type === 'file').map(lecture => (
+                  {chapter.lectures.map(lecture => (
                     <motion.div
                       key={lecture.id}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.2 }}
                       className="flex items-center justify-between p-2 bg-white rounded-lg border hover:shadow-sm transition-all cursor-pointer"
-                      onClick={() => handleItemClick(lecture)}
+                      onClick={() => handleLectureClick(lecture)}
                     >
                       <div className="flex items-center space-x-2">
                         <div className="p-1 bg-red-100 rounded">
@@ -341,7 +315,9 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">{lecture.name}</p>
-                          <p className="text-xs text-gray-500">{formatDate(lecture.modifiedTime)}</p>
+                          {lecture.pdfLink && (
+                            <p className="text-xs text-blue-500">PDF available</p>
+                          )}
                         </div>
                       </div>
                       <Button size="sm" variant="outline" className="h-7 px-2">
@@ -416,26 +392,9 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
               </div>
             </div>
             <div className="flex items-center space-x-2">
-              <Button onClick={clearCache} variant="outline" size="sm">
+              <Button onClick={fetchCourses} variant="outline" size="sm">
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
-              </Button>
-              <Button 
-                onClick={async () => {
-                  try {
-                    const response = await fetch('/api/test-drive');
-                    const data = await response.json();
-                    console.log('Drive test result:', data);
-                    alert(`Drive test: ${data.success ? 'Success' : 'Failed'}\nCourses found: ${data.courses?.length || 0}`);
-                  } catch (error) {
-                    console.error('Drive test failed:', error);
-                    alert('Drive test failed - check console');
-                  }
-                }}
-                variant="outline" 
-                size="sm"
-              >
-                Test Drive
               </Button>
               <Badge variant="secondary">
                 {courses.length} courses

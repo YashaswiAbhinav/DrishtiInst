@@ -1,0 +1,39 @@
+services:
+  ts-client:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: ts-client:dev
+    container_name: ts-client
+    restart: unless-stopped
+    init: true
+    ports:
+      - "3000:3000"
+    # env_file: ./client/.env  # Uncomment if .env file exists
+    networks:
+      - appnet
+    depends_on:
+      - ts-server
+    # The client depends on the server for API calls
+
+  ts-server:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    image: ts-server:dev
+    container_name: ts-server
+    restart: unless-stopped
+    init: true
+    ports:
+      - "5000:5000"
+    # env_file: ./server/.env  # Uncomment if .env file exists
+    networks:
+      - appnet
+    # If the server needs a database or other external service, add depends_on here
+
+# No external services (database, cache, etc.) detected in documentation or code
+# If you add a database, cache, or other service, add it below and connect to 'appnet'
+
+networks:
+  appnet:
+    driver: bridge

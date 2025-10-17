@@ -8,11 +8,11 @@ import VideoPlayer from "./VideoPlayer";
 import MyCoursesPage from "./MyCoursesPage";
 import LMSContentViewer from "./LMSContentViewer";
 import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
-import { testFirebaseConnection } from "@/utils/firebaseTest";
+
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'my-courses' | 'lms-content';
+type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content';
 
 interface User {
   name: string;
@@ -26,12 +26,10 @@ export default function LMSApp() {
   const [currentState, setCurrentState] = useState<AppState>('welcome');
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string>('');
+  const [selectedVideoTitle, setSelectedVideoTitle] = useState<string>('Course Video');
   const { user, userData, loading, login, register, logout } = useAdvancedAuth();
 
   useEffect(() => {
-    // Test Firebase connection on app load
-    testFirebaseConnection();
-    
     if (user && userData) {
       setCurrentState('dashboard');
     } else if (!loading) {
@@ -92,11 +90,7 @@ export default function LMSApp() {
     setCurrentState('courses');
   };
 
-  const handleViewMyCourses = () => {
-    console.log('handleViewMyCourses called. Setting state to "my-courses"');
-    setCurrentState('my-courses');
-    console.log('Current state after update:', 'my-courses'); // Log the intended state
-  };
+
 
   const handleViewLMSContent = () => {
     setCurrentState('lms-content');
@@ -113,7 +107,7 @@ export default function LMSApp() {
 
   const handleEnrollCourse = async (courseId: string) => {
     try {
-      if (!user || !userData) return;
+      if (!user || !userData) return false;
       
       // Update user's enrolled courses in Firebase
       const updatedCourses = [...userData.listOfCourses, courseId];
@@ -121,15 +115,11 @@ export default function LMSApp() {
         listOfCourses: updatedCourses
       });
       
-      // Update local state
-      setUserData({
-        ...userData,
-        listOfCourses: updatedCourses
-      });
-      
       console.log('Successfully enrolled in:', courseId);
+      return true;
     } catch (error) {
       console.error('Enrollment failed:', error);
+      return false;
     }
   };
 
@@ -189,7 +179,7 @@ export default function LMSApp() {
         onViewCourse={handleViewCourse}
         onEnrollCourse={handleEnrollCourse}
         onViewAllCourses={handleViewAllCourses}
-        onViewMyCourses={handleViewMyCourses}
+
         onViewLMSContent={handleViewLMSContent}
       />
     );
@@ -202,22 +192,14 @@ export default function LMSApp() {
         user={currentUser}
         onPlayVideo={(videoId, videoUrl, videoTitle) => {
           setSelectedVideoUrl(videoUrl);
+          setSelectedVideoTitle(videoTitle || 'Course Video');
           setCurrentState('video-player');
         }}
       />
     );
   }
 
-  if (currentState === 'my-courses') {
-    return (
-      <MyCoursesPage
-        user={currentUser}
-        onBack={handleBackToDashboard}
-        onLogout={handleLogout}
-        onPlayVideo={handlePlayVideo}
-      />
-    );
-  }
+
 
   if (currentState === 'all-courses') {
     return (
@@ -247,11 +229,11 @@ export default function LMSApp() {
     return (
       <VideoPlayer
         videoUrl={selectedVideoUrl}
+        videoTitle={selectedVideoTitle}
+        videoDescription="Learn from our expert instructors with comprehensive course content."
         user={currentUser}
         onBack={() => setCurrentState('lms-content')}
         onLogout={handleLogout}
-        onNextVideo={() => console.log('Next video')}
-        onPreviousVideo={() => console.log('Previous video')}
       />
     );
   }

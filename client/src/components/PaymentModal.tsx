@@ -81,7 +81,6 @@ export default function PaymentModal({
 
             if (verifyResponse.ok) {
               onPaymentSuccess(courseName);
-              onClose();
             } else {
               throw new Error('Payment verification failed');
             }

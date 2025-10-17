@@ -22,7 +22,8 @@ import {
   collection, 
   where, 
   getDocs,
-  updateDoc 
+  updateDoc,
+  onSnapshot 
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 
@@ -60,41 +61,53 @@ export const useAdvancedAuth = () => {
 
   useEffect(() => {
     console.log('Setting up auth state listener...');
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let userDocUnsubscribe: (() => void) | null = null;
+    
+    const authUnsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
+      
+      // Clean up previous user document listener
+      if (userDocUnsubscribe) {
+        userDocUnsubscribe();
+        userDocUnsubscribe = null;
+      }
+      
       if (firebaseUser) {
         console.log('Firebase user:', firebaseUser.uid, firebaseUser.email);
         setUser(firebaseUser);
-        try {
-          // Retry fetching user data with delay if not found immediately
-          let userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          let retries = 0;
-          while (!userDoc.exists() && retries < 3) {
-            console.log(`User document not found, retrying... (${retries + 1}/3)`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-            retries++;
-          }
-          
-          if (userDoc.exists()) {
-            console.log('User data found:', userDoc.data());
-            setUserData(userDoc.data() as UserData);
-          } else {
-            console.log('No user document found in Firestore after retries');
+        
+        // Set up real-time listener for user document
+        userDocUnsubscribe = onSnapshot(
+          doc(db, 'users', firebaseUser.uid),
+          (userDoc) => {
+            if (userDoc.exists()) {
+              console.log('User data updated:', userDoc.data());
+              setUserData(userDoc.data() as UserData);
+            } else {
+              console.log('No user document found in Firestore');
+              setUserData(null);
+            }
+            setLoading(false);
+          },
+          (error) => {
+            console.error('Error listening to user data:', error);
             setUserData(null);
+            setLoading(false);
           }
-        } catch (error) {
-          console.error('Error fetching user data:', error);
-          setUserData(null);
-        }
+        );
       } else {
         setUser(null);
         setUserData(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      authUnsubscribe();
+      if (userDocUnsubscribe) {
+        userDocUnsubscribe();
+      }
+    };
   }, []);
 
   const initRecaptcha = () => {

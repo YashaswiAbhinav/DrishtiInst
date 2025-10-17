@@ -1,0 +1,84 @@
+# 1. Version control
+.git/
+.gitignore
+.svn/
+.hg/
+
+# 2. Node.js dependencies and logs
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# 3. Build outputs
+/dist/
+/client/dist/
+/server/dist/
+/build/
+/out/
+
+# 4. IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+.replit
+
+# 5. Environment and secrets
+.env
+.env.*
+*.env
+*.pem
+*.key
+*.crt
+
+# 6. Documentation and markdown
+*.md
+README*
+/docs/
+
+# 7. Docker and Compose files
+Dockerfile*
+docker-compose*
+
+# 8. Temporary and local files
+tmp/
+temp/
+*.tmp
+.local/
+local/
+
+# 9. Project-specific assets
+graphics/
+
+# 10. Miscellaneous
+*.log
+*.example
+*.production
+
+# 11. Test and debug artifacts
+test/
+tests/
+debug/
+
+# 12. Python cache (if any accidentally present)
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.coverage
+
+# 13. Go cache (if any accidentally present)
+/vendor/
+*.test
+.go-cache/
+
+# 14. Java build (if any accidentally present)
+target/
+*.class
+.gradle/
+
+# 15. Exclude server public build assets (if built outside container)
+/server/public/assets/
+
+# End of .dockerignore

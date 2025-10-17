@@ -2,21 +2,14 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, BookOpen, Play, Folder, Video, RefreshCw } from 'lucide-react';
+import { firebaseContentService } from '@/services/firebaseContentService';
+import type { Course, Subject, Chapter, Lecture } from '../../../shared/firebaseTypes';
 
 interface User {
   name: string;
   username: string;
   class: string;
   enrolledCourses: string[];
-}
-
-interface DriveItem {
-  id: string;
-  name: string;
-  type: 'folder' | 'file';
-  modifiedTime: string;
-  webViewLink: string;
-  embedUrl?: string;
 }
 
 interface MyCoursesPageProps {
@@ -28,102 +21,105 @@ interface MyCoursesPageProps {
 
 export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: MyCoursesPageProps) {
   const [currentView, setCurrentView] = useState<'courses' | 'subjects' | 'chapters' | 'lectures'>('courses');
-  const [selectedCourse, setSelectedCourse] = useState<string>('');
-  const [selectedSubject, setSelectedSubject] = useState<DriveItem | null>(null);
-  const [selectedChapter, setSelectedChapter] = useState<DriveItem | null>(null);
-  const [items, setItems] = useState<DriveItem[]>([]);
-  const [availableCourses, setAvailableCourses] = useState<string[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
+  const [selectedChapter, setSelectedChapter] = useState<Chapter | null>(null);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [lectures, setLectures] = useState<Lecture[]>([]);
   const [loading, setLoading] = useState(false);
   const [breadcrumb, setBreadcrumb] = useState<string[]>(['My Courses']);
 
   useEffect(() => {
-    fetchAvailableCourses();
+    fetchEnrolledCourses();
   }, []);
 
-  const fetchAvailableCourses = async () => {
+  const fetchEnrolledCourses = async () => {
+    setLoading(true);
     try {
-      // Only show enrolled courses for this user
-      setAvailableCourses(user.enrolledCourses);
+      const allCourses = await firebaseContentService.getAllCourses();
+      console.log('All courses from Firebase:', allCourses);
+      const enrolledCourses = allCourses.filter(course => {
+        const isEnrolled = user.enrolledCourses.some(enrolled => 
+          course.name?.toLowerCase().includes(enrolled.toLowerCase()) ||
+          enrolled.toLowerCase().includes(course.name?.toLowerCase() || '')
+        );
+        return isEnrolled;
+      });
+      console.log('Enrolled courses:', enrolledCourses);
+      setCourses(enrolledCourses);
     } catch (error) {
-      console.error('Error setting available courses:', error);
-      setAvailableCourses([]);
+      console.error('Error fetching enrolled courses:', error);
+      setCourses([]);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const fetchCourseSubjects = async (courseName: string, clearCache = false) => {
+  const fetchCourseSubjects = async (course: Course) => {
     setLoading(true);
     try {
-      if (clearCache) {
-        await fetch('/api/cache/clear', { method: 'POST' });
-      }
-      
-      const enrolledCoursesParam = user.enrolledCourses.join(',');
-      const response = await fetch(`/api/drive/course/${encodeURIComponent(courseName)}?enrolledCourses=${enrolledCoursesParam}&t=${Date.now()}`);
-      
-      if (!response.ok) {
-        throw new Error(`Access denied: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setItems(data.subjects || []);
+      const courseSubjects = await firebaseContentService.getSubjectsByCourseId(course.id!);
+      setSubjects(courseSubjects);
     } catch (error) {
       console.error('Error fetching subjects:', error);
-      setItems([]);
+      setSubjects([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchFolderContents = async (folderId: string, clearCache = false) => {
+  const fetchSubjectChapters = async (courseId: string, subject: Subject) => {
     setLoading(true);
     try {
-      if (clearCache) {
-        await fetch('/api/cache/clear', { method: 'POST' });
-      }
-      
-      const enrolledCoursesParam = user.enrolledCourses.join(',');
-      const response = await fetch(`/api/drive/folder/${folderId}?enrolledCourses=${enrolledCoursesParam}&t=${Date.now()}`);
-      
-      if (!response.ok) {
-        throw new Error(`Access denied: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
-      setItems(data.contents || []);
+      const subjectChapters = await firebaseContentService.getChaptersBySubjectId(courseId, subject.id!);
+      setChapters(subjectChapters);
     } catch (error) {
-      console.error('Error fetching folder contents:', error);
-      setItems([]);
+      console.error('Error fetching chapters:', error);
+      setChapters([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCourseClick = (courseName: string) => {
-    setSelectedCourse(courseName);
-    setCurrentView('subjects');
-    setBreadcrumb(['My Courses', courseName]);
-    fetchCourseSubjects(courseName, true); // Clear cache for fresh data
+  const fetchChapterLectures = async (courseId: string, subjectId: string, chapter: Chapter) => {
+    setLoading(true);
+    try {
+      const chapterLectures = await firebaseContentService.getLecturesByChapterId(courseId, subjectId, chapter.id!);
+      setLectures(chapterLectures);
+    } catch (error) {
+      console.error('Error fetching lectures:', error);
+      setLectures([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSubjectClick = (subject: DriveItem) => {
+  const handleCourseClick = (course: Course) => {
+    setSelectedCourse(course);
+    setCurrentView('subjects');
+    setBreadcrumb(['My Courses', course.name]);
+    fetchCourseSubjects(course);
+  };
+
+  const handleSubjectClick = (subject: Subject) => {
     setSelectedSubject(subject);
     setCurrentView('chapters');
-    setBreadcrumb(['My Courses', selectedCourse, subject.name]);
-    fetchFolderContents(subject.id, true); // Clear cache for fresh data
+    setBreadcrumb(['My Courses', selectedCourse?.name || '', subject.name]);
+    fetchSubjectChapters(selectedCourse?.id!, subject);
   };
 
-  const handleChapterClick = (chapter: DriveItem) => {
+  const handleChapterClick = (chapter: Chapter) => {
     setSelectedChapter(chapter);
     setCurrentView('lectures');
-    setBreadcrumb(['My Courses', selectedCourse, selectedSubject?.name || '', chapter.name]);
-    fetchFolderContents(chapter.id, true); // Clear cache for fresh data
+    setBreadcrumb(['My Courses', selectedCourse?.name || '', selectedSubject?.name || '', chapter.name]);
+    fetchChapterLectures(selectedCourse?.id!, selectedSubject?.id!, chapter);
   };
 
-  const handleLectureClick = (lecture: DriveItem) => {
-    if (lecture.embedUrl) {
-      onPlayVideo(lecture.embedUrl);
-    } else {
-      window.open(lecture.webViewLink, '_blank');
+  const handleLectureClick = (lecture: Lecture) => {
+    if (lecture.videoUrl) {
+      onPlayVideo(lecture.videoUrl);
     }
   };
 
@@ -133,24 +129,17 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
     
     if (index === 0) {
       setCurrentView('courses');
-      setItems([]);
     } else if (index === 1) {
       setCurrentView('subjects');
-      fetchCourseSubjects(selectedCourse);
+      if (selectedCourse) {
+        fetchCourseSubjects(selectedCourse);
+      }
     } else if (index === 2) {
       setCurrentView('chapters');
-      if (selectedSubject) {
-        fetchFolderContents(selectedSubject.id);
+      if (selectedCourse && selectedSubject) {
+        fetchSubjectChapters(selectedCourse.id!, selectedSubject);
       }
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric'
-    });
   };
 
   return (
@@ -170,12 +159,14 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
                 variant="ghost" 
                 size="sm" 
                 onClick={() => {
-                  if (currentView === 'subjects' && selectedCourse) {
-                    fetchCourseSubjects(selectedCourse, true);
-                  } else if (currentView === 'chapters' && selectedSubject) {
-                    fetchFolderContents(selectedSubject.id, true);
-                  } else if (currentView === 'lectures' && selectedChapter) {
-                    fetchFolderContents(selectedChapter.id, true);
+                  if (currentView === 'courses') {
+                    fetchEnrolledCourses();
+                  } else if (currentView === 'subjects' && selectedCourse) {
+                    fetchCourseSubjects(selectedCourse);
+                  } else if (currentView === 'chapters' && selectedCourse && selectedSubject) {
+                    fetchSubjectChapters(selectedCourse.id!, selectedSubject);
+                  } else if (currentView === 'lectures' && selectedCourse && selectedSubject && selectedChapter) {
+                    fetchChapterLectures(selectedCourse.id!, selectedSubject.id!, selectedChapter);
                   }
                 }}
               >
@@ -195,23 +186,24 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {currentView === 'courses' && user.enrolledCourses.map((course) => (
-              <div key={course}>
+            {currentView === 'courses' && courses.map((course) => (
+              <div key={course.id}>
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleCourseClick(course)}>
                   <CardHeader>
                     <CardTitle className="flex items-center space-x-2">
                       <BookOpen className="h-5 w-5 text-blue-600" />
-                      <span>{course}</span>
+                      <span>{course.name}</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-gray-600">Click to view subjects</p>
+                    <p className="text-gray-600">{course.description}</p>
+                    <p className="text-sm text-blue-600 mt-2">₹{course.price.toLocaleString()}</p>
                   </CardContent>
                 </Card>
               </div>
             ))}
 
-            {currentView === 'subjects' && items.map((subject) => (
+            {currentView === 'subjects' && subjects.map((subject) => (
               <div key={subject.id}>
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleSubjectClick(subject)}>
                   <CardHeader>
@@ -222,13 +214,12 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
                   </CardHeader>
                   <CardContent>
                     <p className="text-gray-600">Click to view chapters</p>
-                    <p className="text-xs text-gray-400 mt-2">Updated: {formatDate(subject.modifiedTime)}</p>
                   </CardContent>
                 </Card>
               </div>
             ))}
 
-            {currentView === 'chapters' && items.map((chapter) => (
+            {currentView === 'chapters' && chapters.map((chapter) => (
               <div key={chapter.id}>
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleChapterClick(chapter)}>
                   <CardHeader>
@@ -239,13 +230,12 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
                   </CardHeader>
                   <CardContent>
                     <p className="text-gray-600">Click to view lectures</p>
-                    <p className="text-xs text-gray-400 mt-2">Updated: {formatDate(chapter.modifiedTime)}</p>
                   </CardContent>
                 </Card>
               </div>
             ))}
 
-            {currentView === 'lectures' && items.map((lecture) => (
+            {currentView === 'lectures' && lectures.map((lecture) => (
               <div key={lecture.id}>
                 <Card className="hover:shadow-lg transition-shadow cursor-pointer" onClick={() => handleLectureClick(lecture)}>
                   <CardHeader>
@@ -256,7 +246,9 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
                   </CardHeader>
                   <CardContent>
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-400">Updated: {formatDate(lecture.modifiedTime)}</p>
+                      {lecture.pdfLink && (
+                        <p className="text-xs text-blue-500">PDF available</p>
+                      )}
                       <Button size="sm" className="flex items-center space-x-1">
                         <Play className="h-4 w-4" />
                         <span>Play</span>
@@ -269,13 +261,17 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
           </div>
         )}
 
-        {!loading && items.length === 0 && currentView !== 'courses' && (
+        {!loading && (
+          (currentView === 'subjects' && subjects.length === 0) ||
+          (currentView === 'chapters' && chapters.length === 0) ||
+          (currentView === 'lectures' && lectures.length === 0)
+        ) && (
           <div className="text-center py-12">
             <p className="text-gray-500">No content available</p>
           </div>
         )}
 
-        {currentView === 'courses' && !loading && user.enrolledCourses.length === 0 && (
+        {currentView === 'courses' && !loading && courses.length === 0 && (
           <div className="text-center py-12">
             <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-gray-700 mb-2">No Enrolled Courses</h3>

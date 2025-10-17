@@ -31,65 +31,27 @@ interface DashboardProps {
   onViewCourse: (courseId: string) => void;
   onEnrollCourse: (courseId: string) => void;
   onViewAllCourses?: () => void;
-  onViewMyCourses?: () => void;
+
   onViewLMSContent?: () => void;
 }
 
-const getLatestAnnouncement = () => ({
-  id: 1,
-  title: "Welcome to Drishti Institute",
-  content: "Start your learning journey with our comprehensive courses designed by expert educators.",
-  date: new Date().toISOString().split('T')[0],
-  priority: "high"
-});
 
-const getAllCourses = (pricing: Record<string, number> = {}) => [
-  {
-    id: "Class 9th",
-    name: "Class 9th",
-    description: "Foundation course for Class 9 students",
-    students: 2156,
-    videos: 98,
-    duration: "120 hours",
-    price: pricing['Class 9th'] || 2999
-  },
-  {
-    id: "Class 10th",
-    name: "Class 10th",
-    description: "Board exam preparation for Class 10",
-    students: 3156,
-    videos: 134,
-    duration: "150 hours",
-    price: pricing['Class 10th'] || 3999
-  },
-  {
-    id: "Class 11th",
-    name: "Class 11th", 
-    description: "Foundation for JEE & advanced concepts",
-    students: 1924,
-    videos: 156,
-    duration: "180 hours",
-    price: pricing['Class 11th'] || 4999
-  },
-  {
-    id: "Class 12th",
-    name: "Class 12th",
-    description: "Complete JEE & Board preparation",
-    students: 2847,
-    videos: 178,
-    duration: "200 hours",
-    price: pricing['Class 12th'] || 5999
-  }
-];
 
-export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse, onViewAllCourses, onViewMyCourses, onViewLMSContent }: DashboardProps) {
+
+
+export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse, onViewAllCourses, onViewLMSContent }: DashboardProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number }>({ isOpen: false, courseName: '', price: 0 });
+  const [courses, setCourses] = useState<any[]>([]);
+  const [announcement, setAnnouncement] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchCoursePricing();
+    fetchCourses();
+    fetchLatestAnnouncement();
   }, []);
 
   const fetchCoursePricing = async () => {
@@ -102,7 +64,39 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
     }
   };
 
-  const allCourses = getAllCourses(pricing);
+  const fetchCourses = async () => {
+    try {
+      const response = await fetch('/api/courses');
+      const data = await response.json();
+      setCourses(data.courses || []);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLatestAnnouncement = async () => {
+    try {
+      const response = await fetch('/api/announcements/latest');
+      if (response.ok) {
+        const data = await response.json();
+        setAnnouncement(data.announcement);
+      }
+    } catch (error) {
+      console.error('Error fetching announcement:', error);
+    }
+  };
+
+  const allCourses = courses.map(course => ({
+    id: course,
+    name: course,
+    description: `Complete ${course} course with comprehensive coverage`,
+    students: 0,
+    videos: 0,
+    duration: "0 hours",
+    price: pricing[course] || 0
+  }));
   
   const enrolledCourseDetails = allCourses.filter(course => 
     user.enrolledCourses.includes(course.id)
@@ -190,18 +184,12 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                     <BookOpen className="h-4 w-4 mr-3" />
                     Courses
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start" onClick={onViewMyCourses} data-testid="nav-my-courses">
-                    <Play className="h-4 w-4 mr-3" />
-                    My Courses
-                  </Button>
+
                   <Button variant="ghost" className="w-full justify-start" onClick={onViewLMSContent} data-testid="nav-lms-content">
                     <BookOpen className="h-4 w-4 mr-3" />
                     Course Content
                   </Button>
-                  <Button variant="ghost" className="w-full justify-start" data-testid="nav-progress">
-                    <Award className="h-4 w-4 mr-3" />
-                    Progress
-                  </Button>
+
                 </div>
               </div>
               
@@ -214,10 +202,7 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                     <div className="text-2xl font-bold text-primary">{enrolledCourseDetails.length}</div>
                     <div className="text-xs text-muted-foreground">Enrolled Courses</div>
                   </div>
-                  <div className="bg-green-100 dark:bg-green-900/20 p-3 rounded-lg">
-                    <div className="text-2xl font-bold text-green-600">85%</div>
-                    <div className="text-xs text-muted-foreground">Average Progress</div>
-                  </div>
+
                 </div>
               </div>
             </div>
@@ -246,38 +231,40 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
             </div>
 
             {/* Latest Announcement */}
-            <motion.div 
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="mb-8"
-            >
-              <Card className="border-primary/20 bg-primary/5 hover-elevate">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
+            {announcement && (
+              <motion.div 
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ duration: 0.6, delay: 0.2 }}
+                className="mb-8"
+              >
+                <Card className="border-primary/20 bg-primary/5 hover-elevate">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <motion.div
+                          animate={{ rotate: [0, 10, -10, 0] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <Bell className="h-5 w-5 text-primary" />
+                        </motion.div>
+                        <CardTitle className="text-lg">{announcement.title}</CardTitle>
+                      </div>
                       <motion.div
-                        animate={{ rotate: [0, 10, -10, 0] }}
+                        animate={{ scale: [1, 1.1, 1] }}
                         transition={{ duration: 2, repeat: Infinity }}
                       >
-                        <Bell className="h-5 w-5 text-primary" />
+                        <Badge variant="default">New</Badge>
                       </motion.div>
-                      <CardTitle className="text-lg">Latest Update</CardTitle>
                     </div>
-                    <motion.div
-                      animate={{ scale: [1, 1.1, 1] }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <Badge variant="default">New</Badge>
-                    </motion.div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm">{getLatestAnnouncement().content}</p>
-                  <p className="text-xs text-muted-foreground mt-2">{getLatestAnnouncement().date}</p>
-                </CardContent>
-              </Card>
-            </motion.div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm">{announcement.content}</p>
+                    <p className="text-xs text-muted-foreground mt-2">{announcement.date}</p>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
             {/* Courses Section */}
             <div>
@@ -329,7 +316,7 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                         
                         {user.enrolledCourses.includes(course.id) ? (
                           <Button 
-                            onClick={() => onViewCourse(course.id)} 
+                            onClick={onViewLMSContent} 
                             className="w-full"
                             data-testid={`button-view-course-${course.id}`}
                           >

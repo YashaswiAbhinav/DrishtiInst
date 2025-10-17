@@ -15,6 +15,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get specific course details from Firebase
+  app.get('/api/course/:courseId', async (req, res) => {
+    try {
+      const { courseId } = req.params;
+      
+      // This should fetch from Firebase Firestore
+      // For now, return a basic structure
+      const course = {
+        id: courseId,
+        name: courseId,
+        description: `Complete ${courseId} course with comprehensive coverage`,
+        totalVideos: 0,
+        totalDuration: '0 hours',
+        students: 0,
+        subjects: []
+      };
+      
+      res.json({ course });
+    } catch (error) {
+      console.error('API Error:', error);
+      res.status(500).json({ error: 'Failed to fetch course details' });
+    }
+  });
+
+  // Get latest announcement
+  app.get('/api/announcements/latest', async (req, res) => {
+    try {
+      // This should fetch from Firebase Firestore announcements collection
+      // For now, return null to indicate no announcements
+      res.json({ announcement: null });
+    } catch (error) {
+      console.error('API Error:', error);
+      res.status(500).json({ error: 'Failed to fetch announcement' });
+    }
+  });
+
   // Get enrolled courses content (with access control)
   app.get('/api/my-courses', async (req, res) => {
     try {
