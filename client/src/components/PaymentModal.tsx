@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, X, CheckCircle, AlertCircle } from 'lucide-react';
+import { courseService } from '@/services/courseService';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -36,27 +37,12 @@ export default function PaymentModal({
     setError('');
 
     try {
-      // Create order
-      const orderResponse = await fetch('/api/payment/create-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          courseName,
-          userEmail,
-        }),
-      });
-
-      if (!orderResponse.ok) {
-        throw new Error('Failed to create payment order');
-      }
-
-      const orderData = await orderResponse.json();
+      // Create order using direct service
+      const orderData = await courseService.createPaymentOrder(courseName, userEmail);
 
       // Initialize Razorpay
       const options = {
-        key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+        key: "rzp_test_your_key_here", // Replace with actual Razorpay key
         amount: orderData.amount,
         currency: orderData.currency,
         name: 'Drishti Institute',
@@ -64,22 +50,10 @@ export default function PaymentModal({
         order_id: orderData.orderId,
         handler: async (response: any) => {
           try {
-            // Verify payment
-            const verifyResponse = await fetch('/api/payment/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-                courseName,
-                userEmail,
-              }),
-            });
-
-            if (verifyResponse.ok) {
+            // Verify payment using direct service
+            const verifyResult = await courseService.verifyPayment(courseName, response.razorpay_payment_id);
+            
+            if (verifyResult.success) {
               onPaymentSuccess(courseName);
             } else {
               throw new Error('Payment verification failed');

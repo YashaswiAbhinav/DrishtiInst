@@ -7,12 +7,13 @@ import CourseDetailPage from "./CourseDetailPage";
 import VideoPlayer from "./VideoPlayer";
 import MyCoursesPage from "./MyCoursesPage";
 import LMSContentViewer from "./LMSContentViewer";
+import EmailVerificationPrompt from "./EmailVerificationPrompt";
 import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
 
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content';
+type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content' | 'email-verification';
 
 interface User {
   name: string;
@@ -27,14 +28,27 @@ export default function LMSApp() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string>('');
   const [selectedVideoTitle, setSelectedVideoTitle] = useState<string>('Course Video');
-  const { user, userData, loading, login, register, logout } = useAdvancedAuth();
+  const { user, userData, loading, login, register, logout, enrollInCourse, sendEmailVerificationToUser } = useAdvancedAuth();
 
   useEffect(() => {
-    if (user && userData) {
-      setCurrentState('dashboard');
-    } else if (!loading) {
-      setCurrentState('welcome');
-    }
+    const checkEmailVerification = async () => {
+      if (user && userData) {
+        // Reload user to get fresh emailVerified status
+        await user.reload();
+        
+        // Check if email is verified before allowing dashboard access
+        if (user.emailVerified || !userData.email) {
+          setCurrentState('dashboard');
+        } else {
+          // User logged in but email not verified - show verification prompt
+          setCurrentState('email-verification');
+        }
+      } else if (!loading) {
+        setCurrentState('welcome');
+      }
+    };
+    
+    checkEmailVerification();
   }, [user, userData, loading]);
 
   const handleGetStarted = () => {
@@ -109,12 +123,7 @@ export default function LMSApp() {
     try {
       if (!user || !userData) return false;
       
-      // Update user's enrolled courses in Firebase
-      const updatedCourses = [...userData.listOfCourses, courseId];
-      await updateDoc(doc(db, 'users', user.uid), {
-        listOfCourses: updatedCourses
-      });
-      
+      await enrollInCourse(courseId);
       console.log('Successfully enrolled in:', courseId);
       return true;
     } catch (error) {
@@ -234,6 +243,16 @@ export default function LMSApp() {
         user={currentUser}
         onBack={() => setCurrentState('lms-content')}
         onLogout={handleLogout}
+      />
+    );
+  }
+
+  if (currentState === 'email-verification') {
+    return (
+      <EmailVerificationPrompt
+        userEmail={userData?.email || ''}
+        onBack={handleLogout}
+        onResendEmail={sendEmailVerificationToUser}
       />
     );
   }

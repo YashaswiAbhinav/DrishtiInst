@@ -115,7 +115,7 @@ export default function VideoPlayer({ videoUrl, videoTitle = "Course Video", vid
                 src={videoUrl}
                 className="w-full h-full"
                 controls
-                controlsList="nodownload nofullscreen noremoteplayback"
+                controlsList="nodownload noremoteplayback"
                 disablePictureInPicture
                 onContextMenu={(e) => e.preventDefault()}
                 style={{ outline: 'none' }}

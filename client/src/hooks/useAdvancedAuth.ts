@@ -168,85 +168,92 @@ export const useAdvancedAuth = () => {
 
   const register = async (data: RegisterData) => {
     console.log('Registration attempt with data:', { ...data, password: '[HIDDEN]' });
-    let user: User;
-
+    
     if (data.email && data.password) {
       console.log('Creating user with email and password');
       const result = await createUserWithEmailAndPassword(auth, data.email, data.password);
-      user = result.user;
+      const user = result.user;
       console.log('User created successfully:', user.uid);
-    } else if (data.phone) {
-      console.log('Attempting phone registration');
-      const verifier = initRecaptcha();
-      const confirmationResult = await signInWithPhoneNumber(auth, data.phone, verifier);
-      return { confirmationResult, requiresOTP: true, userData: data };
-    } else {
-      throw new Error('Either email+password or phone number is required');
-    }
-
-    console.log('Updating user profile...');
-    await updateProfile(user, { displayName: data.name });
-
-    console.log('Creating user document in Firestore...');
-    const userData = {
-      uid: user.uid,
-      name: data.name,
-      email: data.email || null,
-      userName: data.username || null,
-      phone: data.phone || null,
-      userClass: data.class,
-      listOfCourses: [],
-      coins: 0,
-      deviceId: data.deviceId || null,
-      password: data.password || null,
-      emailVerified: data.email ? user.emailVerified : false,
-      phoneVerified: data.phone ? true : false,
-      createdAt: new Date()
-    };
-    
-    await setDoc(doc(db, 'users', user.uid), userData);
-    console.log('User document created successfully');
-
-    // Send email verification if email is provided
-    if (data.email) {
+      
+      await updateProfile(user, { displayName: data.name });
+      
+      const userData = {
+        uid: user.uid,
+        name: data.name,
+        email: data.email,
+        userName: data.username || null,
+        phone: data.phone || null,
+        userClass: data.class,
+        listOfCourses: [],
+        coins: 0,
+        deviceId: data.deviceId || null,
+        password: data.password,
+        emailVerified: false,
+        phoneVerified: false,
+        createdAt: new Date()
+      };
+      
+      await setDoc(doc(db, 'users', user.uid), userData);
+      
+      // Send email verification
       try {
         await sendEmailVerification(user);
         console.log('Email verification sent');
       } catch (error) {
         console.error('Failed to send email verification:', error);
       }
+      
+      return { user, requiresOTP: false };
     }
-
-    return { user, requiresOTP: false };
+    
+    throw new Error('Email and password are required');
   };
 
   const verifyOTP = async (confirmationResult: any, otp: string, userData?: RegisterData) => {
     const result = await confirmationResult.confirm(otp);
-    const user = result.user;
     
-    // If this is registration (userData provided), create user document
-    if (userData && user) {
-      console.log('Creating user document after phone verification...');
-      await updateProfile(user, { displayName: userData.name });
+    // If this is registration (userData provided), create Firebase user
+    if (userData) {
+      console.log('Creating Firebase user after mock phone verification...');
       
-      const userDocData = {
-        uid: user.uid,
-        name: userData.name,
-        email: userData.email || null,
-        userName: userData.username || null,
-        phone: userData.phone || null,
-        userClass: userData.class,
-        listOfCourses: [],
-        coins: 0,
-        deviceId: userData.deviceId || null,
-        password: userData.password || null,
-        emailVerified: false,
-        phoneVerified: true,
-        createdAt: new Date()
-      };
-      
-      await setDoc(doc(db, 'users', user.uid), userDocData);
-      console.log('User document created after phone verification');
+      // Create Firebase user with email/password
+      if (userData.email && userData.password) {
+        const firebaseResult = await createUserWithEmailAndPassword(auth, userData.email, userData.password);
+        const firebaseUser = firebaseResult.user;
+        
+        await updateProfile(firebaseUser, { displayName: userData.name });
+        
+        const userDocData = {
+          uid: firebaseUser.uid,
+          name: userData.name,
+          email: userData.email,
+          userName: userData.username || null,
+          phone: userData.phone || null,
+          userClass: userData.class,
+          listOfCourses: [],
+          coins: 0,
+          deviceId: userData.deviceId || null,
+          password: userData.password,
+          emailVerified: false,
+          phoneVerified: true, // Mock verified
+          createdAt: new Date()
+        };
+        
+        await setDoc(doc(db, 'users', firebaseUser.uid), userDocData);
+        console.log('User document created after mock phone verification');
+        
+        // Send email verification
+        try {
+          await sendEmailVerification(firebaseUser);
+          console.log('Email verification sent');
+        } catch (error) {
+          console.error('Failed to send email verification:', error);
+        }
+        
+        return { user: firebaseUser };
+      } else {
+        throw new Error('Email and password required for registration');
+      }
     }
     
     return result;
@@ -266,17 +273,31 @@ export const useAdvancedAuth = () => {
 
   const sendPhoneOTP = async (phoneNumber: string) => {
     try {
-      const verifier = initRecaptcha();
-      const confirmationResult = await signInWithPhoneNumber(auth, phoneNumber, verifier);
-      console.log('SMS sent successfully');
-      return confirmationResult;
+      // Mock OTP system - generate a fixed OTP for demo
+      const mockOTP = '123456';
+      console.log(`Mock OTP for ${phoneNumber}: ${mockOTP}`);
+      
+      // Return a mock confirmation result
+      const mockConfirmationResult = {
+        confirm: async (otp: string) => {
+          if (otp === mockOTP) {
+            // Create a mock user result
+            return {
+              user: {
+                uid: `mock_${Date.now()}`,
+                phoneNumber: phoneNumber,
+                displayName: null
+              }
+            };
+          } else {
+            throw new Error('Invalid OTP');
+          }
+        }
+      };
+      
+      return mockConfirmationResult;
     } catch (error: any) {
-      console.error('Error sending SMS:', error);
-      // Reset recaptcha on error
-      if (recaptchaVerifier) {
-        recaptchaVerifier.clear();
-        setRecaptchaVerifier(null);
-      }
+      console.error('Error with mock OTP:', error);
       throw error;
     }
   };
@@ -304,6 +325,14 @@ export const useAdvancedAuth = () => {
     return sendEmailVerification(user);
   };
 
+  const enrollInCourse = async (courseName: string) => {
+    if (!user) throw new Error('No user logged in');
+    
+    await updateDoc(doc(db, 'users', user.uid), {
+      listOfCourses: [...(userData?.listOfCourses || []), courseName]
+    });
+  };
+
   const logout = () => signOut(auth);
 
   return {
@@ -320,6 +349,7 @@ export const useAdvancedAuth = () => {
     resetPasswordWithPhone,
     updateUserPassword,
     sendEmailVerificationToUser,
+    enrollInCourse,
     logout,
     initRecaptcha
   };

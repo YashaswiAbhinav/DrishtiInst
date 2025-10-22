@@ -22,6 +22,7 @@ import {
   Dna
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { courseService } from "@/services/courseService";
 
 interface Course {
     id: string;
@@ -72,13 +73,10 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
   const { data: courses, isLoading } = useQuery({
     queryKey: ['all-courses'],
     queryFn: async () => {
-      const [coursesRes, pricingRes] = await Promise.all([
-        fetch('/api/courses'),
-        fetch('/api/course-pricing')
+      const [coursesData, pricingData] = await Promise.all([
+        courseService.getCourses(),
+        courseService.getCoursePricing()
       ]);
-      
-      const coursesData = await coursesRes.json();
-      const pricingData = await pricingRes.json();
       
       const courseStats = {
         'Class 9th': { students: 2156, videos: 98, duration: '120 hours' },
@@ -87,7 +85,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
         'Class 12th': { students: 2847, videos: 178, duration: '200 hours' }
       };
       
-      return coursesData.courses.map((courseName: string) => ({
+      return coursesData.map((courseName: string) => ({
         id: courseName,
         name: courseName,
         description: `Complete ${courseName} curriculum with all subjects`,
@@ -95,23 +93,15 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
         students: courseStats[courseName as keyof typeof courseStats]?.students || 1000,
         videos: courseStats[courseName as keyof typeof courseStats]?.videos || 100,
         duration: courseStats[courseName as keyof typeof courseStats]?.duration || '100 hours',
-        price: `₹${pricingData.pricing[courseName]?.toLocaleString() || '2999'}`
+        price: `₹${pricingData[courseName]?.toLocaleString() || '2999'}`
       })) as Course[];
     }
   });
 
   const { mutate: enrollInCourse } = useMutation({
     mutationFn: async (courseName: string) => {
-      const res = await fetch('/api/enroll', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ courseName }),
-      });
-      if (!res.ok) {
-        throw new Error('Failed to enroll in course');
-      }
+      // This will be handled by the parent component's onEnrollCourse
+      return Promise.resolve();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['courses'] });
@@ -126,7 +116,6 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
 
   const handleEnrollCourse = async (courseName: string) => {
     try {
-      await enrollInCourse(courseName);
       // Call the parent component's enroll handler to update Firebase
       onEnrollCourse(courseName);
     } catch (error) {

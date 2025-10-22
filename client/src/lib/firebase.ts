@@ -4,13 +4,13 @@ import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-  appId: import.meta.env.VITE_FIREBASE_APP_ID
+  apiKey: "AIzaSyBDqQN8Oi_o9kwCX-p-KsukI9FgpWKIGqo",
+  authDomain: "drishtimukesh-fd807.firebaseapp.com",
+  databaseURL: "https://drishtimukesh-fd807-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "drishtimukesh-fd807",
+  storageBucket: "drishtimukesh-fd807.firebasestorage.app",
+  messagingSenderId: "750496390361",
+  appId: "1:750496390361:web:31e0cb7375e99ece59f2c8"
 };
 
 const app = initializeApp(firebaseConfig);

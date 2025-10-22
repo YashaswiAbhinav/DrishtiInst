@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import PaymentModal from "./PaymentModal";
+import { courseService } from "@/services/courseService";
 import { 
   BookOpen, 
   Play, 
@@ -56,9 +57,8 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
 
   const fetchCoursePricing = async () => {
     try {
-      const response = await fetch('/api/course-pricing');
-      const data = await response.json();
-      setPricing(data.pricing);
+      const pricing = await courseService.getCoursePricing();
+      setPricing(pricing);
     } catch (error) {
       console.error('Error fetching pricing:', error);
     }
@@ -66,9 +66,8 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
 
   const fetchCourses = async () => {
     try {
-      const response = await fetch('/api/courses');
-      const data = await response.json();
-      setCourses(data.courses || []);
+      const courses = await courseService.getCourses();
+      setCourses(courses);
     } catch (error) {
       console.error('Error fetching courses:', error);
     } finally {
@@ -78,11 +77,8 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
 
   const fetchLatestAnnouncement = async () => {
     try {
-      const response = await fetch('/api/announcements/latest');
-      if (response.ok) {
-        const data = await response.json();
-        setAnnouncement(data.announcement);
-      }
+      // No announcements for now
+      setAnnouncement(null);
     } catch (error) {
       console.error('Error fetching announcement:', error);
     }

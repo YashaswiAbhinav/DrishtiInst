@@ -39,6 +39,7 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
   const [registrationOTP, setRegistrationOTP] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [pendingUserData, setPendingUserData] = useState<RegisterData | null>(null);
   const { sendPhoneOTP, verifyOTP } = useAdvancedAuth();
@@ -60,16 +61,11 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
     e.preventDefault();
     setIsLoading(true);
     setError('');
+    setSuccess('');
     try {
-      // If phone number is provided, send OTP first
-      if (registerData.phone && !registerData.email) {
-        const result = await sendPhoneOTP(registerData.phone);
-        setConfirmationResult(result);
-        setPendingUserData(registerData);
-        setShowOTPModal(true);
-      } else {
-        await onRegister(registerData);
-      }
+      // Direct registration with email/password (no OTP required)
+      await onRegister(registerData);
+      setSuccess('Registration successful! Please check your email for verification link.');
     } catch (error: any) {
       setError(error.message || 'Registration failed');
     } finally {
@@ -139,6 +135,11 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
               <CardDescription>
                 Enter the 6-digit OTP sent to {registerData.phone}
               </CardDescription>
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <p className="text-sm text-blue-800">
+                  <strong>Demo Mode:</strong> Use OTP: <code className="bg-blue-100 px-2 py-1 rounded">123456</code>
+                </p>
+              </div>
               {error && (
                 <div className="text-red-500 text-sm">{error}</div>
               )}
@@ -349,6 +350,9 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                 </div>
                 {error && (
                   <div className="text-red-500 text-sm text-center">{error}</div>
+                )}
+                {success && (
+                  <div className="text-green-600 text-sm text-center bg-green-50 p-3 rounded-lg">{success}</div>
                 )}
                 <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-register-submit">
                   {isLoading ? 'Creating Account...' : 'Register Account'}
