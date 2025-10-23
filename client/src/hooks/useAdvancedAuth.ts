@@ -322,15 +322,44 @@ export const useAdvancedAuth = () => {
 
   const sendEmailVerificationToUser = async () => {
     if (!user) throw new Error('No user logged in');
-    return sendEmailVerification(user);
+    
+    // Reload user to get fresh status
+    await user.reload();
+    
+    if (user.emailVerified) {
+      throw new Error('Email is already verified');
+    }
+    
+    await sendEmailVerification(user);
+    console.log('Manual email verification sent');
+  };
+
+  const refreshUser = async () => {
+    if (!user) return;
+    await user.reload();
+    console.log('User reloaded, emailVerified:', user.emailVerified);
   };
 
   const enrollInCourse = async (courseName: string) => {
     if (!user) throw new Error('No user logged in');
     
+    console.log('ENROLLMENT CALLED FOR:', courseName);
+    console.log('Current enrolled courses:', userData?.listOfCourses);
+    
+    // Check if already enrolled
+    if (userData?.listOfCourses?.includes(courseName)) {
+      console.log('User already enrolled in:', courseName);
+      return;
+    }
+    
+    const updatedCourses = [...(userData?.listOfCourses || []), courseName];
+    console.log('Updating courses to:', updatedCourses);
+    
     await updateDoc(doc(db, 'users', user.uid), {
-      listOfCourses: [...(userData?.listOfCourses || []), courseName]
+      listOfCourses: updatedCourses
     });
+    
+    console.log('Successfully enrolled in course:', courseName);
   };
 
   const logout = () => signOut(auth);
@@ -349,6 +378,7 @@ export const useAdvancedAuth = () => {
     resetPasswordWithPhone,
     updateUserPassword,
     sendEmailVerificationToUser,
+    refreshUser,
     enrollInCourse,
     logout,
     initRecaptcha

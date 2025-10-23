@@ -59,7 +59,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ courses: [] });
       }
 
-      const userCourses = Array.isArray(enrolledCourses) ? enrolledCourses : enrolledCourses.split(',');
+      const userCourses: string[] = Array.isArray(enrolledCourses)
+        ? (enrolledCourses as string[])
+        : (typeof enrolledCourses === 'string' ? enrolledCourses.split(',') : []);
       const rootFolderId = process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID;
       
       if (!rootFolderId) {
@@ -69,10 +71,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const structure = await driveService.getCompleteStructure(rootFolderId);
       
       // Filter structure to only include enrolled courses
-      const enrolledStructure = structure.filter(course => 
-        userCourses.some(enrolled => 
-          course.name.toLowerCase().includes(enrolled.toString().toLowerCase()) ||
-          enrolled.toString().toLowerCase().includes(course.name.toLowerCase())
+      const enrolledStructure = structure.filter((course) =>
+        userCourses.some((enrolled) =>
+          typeof enrolled === 'string' && (
+            course.name.toLowerCase().includes(enrolled.toLowerCase()) ||
+            enrolled.toLowerCase().includes(course.name.toLowerCase())
+          )
         )
       );
       res.json({ courses: enrolledStructure });
@@ -126,10 +130,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { enrolledCourses } = req.query;
       
       // Check if user is enrolled in this course
-      const userCourses = Array.isArray(enrolledCourses) ? enrolledCourses : [enrolledCourses];
-      const hasAccess = userCourses.some(enrolled => 
-        courseName.toLowerCase().includes(enrolled.toString().toLowerCase()) ||
-        enrolled.toString().toLowerCase().includes(courseName.toLowerCase())
+      const userCoursesCheck: string[] = Array.isArray(enrolledCourses)
+        ? (enrolledCourses as string[])
+        : (typeof enrolledCourses === 'string' ? [enrolledCourses] : []);
+      const hasAccess = userCoursesCheck.some((enrolled) =>
+        typeof enrolled === 'string' && (
+          courseName.toLowerCase().includes(enrolled.toLowerCase()) ||
+          enrolled.toLowerCase().includes(courseName.toLowerCase())
+        )
       );
       
       if (!hasAccess) {
@@ -153,7 +161,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ subjects: course.children || [] });
     } catch (error) {
       console.error('API Error:', error);
-      res.status(500).json({ error: 'Failed to fetch course subjects' });
+      const message = error instanceof Error ? error.message : 'Failed to fetch course subjects';
+      res.status(500).json({ error: message });
     }
   });
 
@@ -245,7 +254,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       console.error('Drive test error:', error);
-      res.status(500).json({ error: error.message });
+      const message = error instanceof Error ? error.message : 'Drive test failed';
+      res.status(500).json({ error: message });
     }
   });
 

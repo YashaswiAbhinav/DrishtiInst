@@ -67,7 +67,15 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
       await onRegister(registerData);
       setSuccess('Registration successful! Please check your email for verification link.');
     } catch (error: any) {
-      setError(error.message || 'Registration failed');
+      if (error.code === 'auth/email-already-in-use') {
+        setError('This email is already registered. Please login instead or use a different email.');
+      } else if (error.code === 'auth/weak-password') {
+        setError('Password is too weak. Please use at least 6 characters.');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else {
+        setError(error.message || 'Registration failed');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -92,15 +100,20 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
     }
   };
 
-  const handleForgotPassword = (e: React.FormEvent) => {
+  const handleForgotPassword = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!forgotData.otpSent) {
-      console.log('Send OTP to:', forgotData.identifier);
-      setForgotData({ ...forgotData, otpSent: true });
-    } else {
-      console.log('Reset password with OTP:', forgotData.otp);
-      setActiveTab('login');
-      setForgotData({ identifier: '', otpSent: false, otp: '', newPassword: '' });
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+    
+    try {
+      const { resetPassword } = useAdvancedAuth();
+      await resetPassword(forgotData.identifier);
+      setSuccess('Password reset email sent! Check your inbox and click the link to reset your password.');
+    } catch (error: any) {
+      setError(error.message || 'Failed to send reset email');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -209,6 +222,14 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
             data-testid="tab-register"
           >
             Register
+          </Button>
+          <Button
+            variant={activeTab === 'forgot' ? 'default' : 'ghost'}
+            onClick={() => setActiveTab('forgot')}
+            className="flex-1"
+            data-testid="tab-forgot"
+          >
+            Reset
           </Button>
         </div>
 
@@ -367,57 +388,37 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
           <Card className="animate-fade-in">
             <CardHeader>
               <CardTitle>Reset Password</CardTitle>
-              <CardDescription>
-                {!forgotData.otpSent 
-                  ? "Enter your email or phone number to receive an OTP"
-                  : "Enter the OTP and your new password"
-                }
-              </CardDescription>
+              <CardDescription>Enter your email to receive a password reset link</CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleForgotPassword} className="space-y-4">
-                {!forgotData.otpSent ? (
-                  <div>
-                    <Label htmlFor="identifier">Email or Phone</Label>
-                    <Input
-                      id="identifier"
-                      value={forgotData.identifier}
-                      onChange={(e) => setForgotData({ ...forgotData, identifier: e.target.value })}
-                      placeholder="Enter email or phone number"
-                      required
-                      data-testid="input-identifier"
-                    />
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      <Label htmlFor="reset-otp">OTP Code</Label>
-                      <Input
-                        id="reset-otp"
-                        value={forgotData.otp}
-                        onChange={(e) => setForgotData({ ...forgotData, otp: e.target.value })}
-                        placeholder="Enter 6-digit OTP"
-                        maxLength={6}
-                        required
-                        data-testid="input-reset-otp"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="new-password">New Password</Label>
-                      <Input
-                        id="new-password"
-                        type="password"
-                        value={forgotData.newPassword}
-                        onChange={(e) => setForgotData({ ...forgotData, newPassword: e.target.value })}
-                        placeholder="Enter new password"
-                        required
-                        data-testid="input-new-password"
-                      />
-                    </div>
-                  </>
+                <div>
+                  <Label htmlFor="forgot-email">Email Address</Label>
+                  <Input
+                    id="forgot-email"
+                    type="email"
+                    value={forgotData.identifier}
+                    onChange={(e) => setForgotData({ ...forgotData, identifier: e.target.value })}
+                    placeholder="Enter your email"
+                    required
+                    data-testid="input-forgot-email"
+                  />
+                </div>
+                {error && (
+                  <div className="text-red-500 text-sm">{error}</div>
                 )}
-                <Button type="submit" className="w-full" data-testid="button-forgot-submit">
-                  {!forgotData.otpSent ? 'Send OTP' : 'Reset Password'}
+                {success && (
+                  <div className="bg-green-50 p-4 rounded-lg">
+                    <p className="text-green-800 text-sm">{success}</p>
+                  </div>
+                )}
+                <Button 
+                  type="submit" 
+                  className="w-full" 
+                  disabled={isLoading}
+                  data-testid="button-forgot-submit"
+                >
+                  {isLoading ? 'Sending...' : 'Send Reset Link'}
                 </Button>
                 <Button
                   type="button"

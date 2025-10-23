@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import PaymentModal from "./PaymentModal";
 import { 
   BookOpen, 
   Play, 
@@ -41,6 +42,7 @@ interface CoursesPageProps {
     username: string;
     class: string;
     enrolledCourses: string[];
+    email?: string;
   };
   onBack: () => void;
   onLogout: () => void;
@@ -68,6 +70,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeClass, setActiveClass] = useState("12"); // Default to show Class 12 (most popular)
+  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number }>({ isOpen: false, courseName: '', price: 0 });
   const queryClient = useQueryClient();
 
   const { data: courses, isLoading } = useQuery({
@@ -93,7 +96,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
         students: courseStats[courseName as keyof typeof courseStats]?.students || 1000,
         videos: courseStats[courseName as keyof typeof courseStats]?.videos || 100,
         duration: courseStats[courseName as keyof typeof courseStats]?.duration || '100 hours',
-        price: `₹${pricingData[courseName]?.toLocaleString() || '2999'}`
+  price: `₹${pricingData[courseName as keyof typeof pricingData]?.toLocaleString() || '2999'}`
       })) as Course[];
     }
   });
@@ -114,13 +117,31 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
     document.documentElement.classList.toggle('dark');
   };
 
-  const handleEnrollCourse = async (courseName: string) => {
-    try {
-      // Call the parent component's enroll handler to update Firebase
-      onEnrollCourse(courseName);
-    } catch (error) {
-      console.error('Enrollment failed:', error);
+  const handleEnrollCourse = async (courseName: string, price: number) => {
+    // IMPORTANT: Only open payment modal - NO direct enrollment
+    console.log('Opening payment modal for:', courseName, 'Price:', price);
+    
+    // Ensure we never directly enroll - always go through payment
+    if (user.enrolledCourses.includes(courseName)) {
+      console.log('User already enrolled in:', courseName);
+      return;
     }
+    
+    setPaymentModal({ isOpen: true, courseName, price });
+  };
+
+  const handleContinueLearning = (courseId: string) => {
+    console.log('Continue learning clicked for course:', courseId);
+    console.log('User enrolled courses:', user.enrolledCourses);
+    
+    // Ensure user is actually enrolled before navigating
+    if (!user.enrolledCourses.includes(courseId)) {
+      console.error('User not enrolled in course:', courseId);
+      return;
+    }
+    
+    // Navigate to course detail / content
+    onViewCourseDetail(courseId);
   };
 
   const coursesByClass = courses?.reduce((acc, course) => {
@@ -317,7 +338,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                               {/* Action Button */}
                               {isEnrolled ? (
                                 <Button
-                                  onClick={() => onViewCourseDetail(course.id)}
+                                  onClick={() => handleContinueLearning(course.id)}
                                   className="w-full"
                                   data-testid={`button-view-course-${course.id}`}
                                 >
@@ -325,7 +346,10 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                                 </Button>
                               ) : (
                                 <Button
-                                  onClick={() => handleEnrollCourse(course.id)}
+                                  onClick={() => {
+                                    const priceNum = parseInt(course.price.replace(/[^0-9]/g, ''));
+                                    handleEnrollCourse(course.id, priceNum);
+                                  }}
                                   variant="outline"
                                   className="w-full"
                                   data-testid={`button-enroll-course-${course.id}`}
@@ -366,6 +390,19 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
           </div>
         </div>
       </div>
+
+      <PaymentModal
+        isOpen={paymentModal.isOpen}
+        onClose={() => setPaymentModal({ isOpen: false, courseName: '', price: 0 })}
+        courseName={paymentModal.courseName}
+        price={paymentModal.price}
+        userEmail={user.email || ''}
+        onPaymentSuccess={(courseName) => {
+          console.log('Payment successful for:', courseName, '- Now enrolling user');
+          onEnrollCourse(courseName);
+          setPaymentModal({ isOpen: false, courseName: '', price: 0 });
+        }}
+      />
     </div>
   );
 }

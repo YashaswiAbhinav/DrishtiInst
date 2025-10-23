@@ -15,6 +15,7 @@ import {
   Star,
   ArrowLeft
 } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import { firebaseContentService } from '@/services/firebaseContentService';
 import type { Course, Subject, Chapter, Lecture } from '../../../shared/firebaseTypes';
 

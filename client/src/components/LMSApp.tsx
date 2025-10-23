@@ -8,12 +8,16 @@ import VideoPlayer from "./VideoPlayer";
 import MyCoursesPage from "./MyCoursesPage";
 import LMSContentViewer from "./LMSContentViewer";
 import EmailVerificationPrompt from "./EmailVerificationPrompt";
+import ContactUs from "./ContactUs";
+import TermsAndConditions from "./TermsAndConditions";
+import RefundPolicy from "./RefundPolicy";
+
 import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
 
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content' | 'email-verification';
+type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content' | 'email-verification' | 'contact' | 'terms' | 'refund';
 
 interface User {
   name: string;
@@ -28,28 +32,21 @@ export default function LMSApp() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string>('');
   const [selectedVideoTitle, setSelectedVideoTitle] = useState<string>('Course Video');
-  const { user, userData, loading, login, register, logout, enrollInCourse, sendEmailVerificationToUser } = useAdvancedAuth();
+  const { user, userData, loading, login, register, logout, enrollInCourse, sendEmailVerificationToUser, refreshUser } = useAdvancedAuth();
 
   useEffect(() => {
-    const checkEmailVerification = async () => {
-      if (user && userData) {
-        // Reload user to get fresh emailVerified status
-        await user.reload();
-        
-        // Check if email is verified before allowing dashboard access
-        if (user.emailVerified || !userData.email) {
-          setCurrentState('dashboard');
-        } else {
-          // User logged in but email not verified - show verification prompt
-          setCurrentState('email-verification');
-        }
-      } else if (!loading) {
-        setCurrentState('welcome');
+    if (user && userData) {
+      // Check if email is verified before allowing dashboard access
+      if (user.emailVerified || !userData.email) {
+        setCurrentState('dashboard');
+      } else {
+        // User logged in but email not verified - show verification prompt
+        setCurrentState('email-verification');
       }
-    };
-    
-    checkEmailVerification();
-  }, [user, userData, loading]);
+    } else if (!loading) {
+      setCurrentState('welcome');
+    }
+  }, [user, userData, loading, user?.emailVerified]);
 
   const handleGetStarted = () => {
     setCurrentState('auth');
@@ -101,7 +98,7 @@ export default function LMSApp() {
   };
 
   const handleViewCourses = () => {
-    setCurrentState('courses');
+    setCurrentState('all-courses');
   };
 
 
@@ -120,6 +117,8 @@ export default function LMSApp() {
   };
 
   const handleEnrollCourse = async (courseId: string) => {
+    // This should only be called after successful payment
+    // The payment modal handles the actual enrollment
     try {
       if (!user || !userData) return false;
       
@@ -150,7 +149,14 @@ export default function LMSApp() {
   };
 
   if (currentState === 'welcome') {
-    return <WelcomePage onGetStarted={handleGetStarted} />;
+    return (
+      <WelcomePage 
+        onGetStarted={handleGetStarted}
+        onContactUs={() => setCurrentState('contact')}
+        onTerms={() => setCurrentState('terms')}
+        onRefund={() => setCurrentState('refund')}
+      />
+    );
   }
 
 
@@ -169,7 +175,14 @@ export default function LMSApp() {
         />
       );
     }
-    return <WelcomePage onGetStarted={handleGetStarted} />;
+    return (
+      <WelcomePage 
+        onGetStarted={handleGetStarted}
+        onContactUs={() => setCurrentState('contact')}
+        onTerms={() => setCurrentState('terms')}
+        onRefund={() => setCurrentState('refund')}
+      />
+    );
   }
 
   const currentUser: User = {
@@ -253,9 +266,31 @@ export default function LMSApp() {
         userEmail={userData?.email || ''}
         onBack={handleLogout}
         onResendEmail={sendEmailVerificationToUser}
+        onRefresh={refreshUser}
       />
     );
   }
 
-  return <WelcomePage onGetStarted={handleGetStarted} />;
+  if (currentState === 'contact') {
+    return <ContactUs onBack={() => setCurrentState('welcome')} />;
+  }
+
+  if (currentState === 'terms') {
+    return <TermsAndConditions onBack={() => setCurrentState('welcome')} />;
+  }
+
+  if (currentState === 'refund') {
+    return <RefundPolicy onBack={() => setCurrentState('welcome')} />;
+  }
+
+
+
+  return (
+    <WelcomePage 
+      onGetStarted={handleGetStarted}
+      onContactUs={() => setCurrentState('contact')}
+      onTerms={() => setCurrentState('terms')}
+      onRefund={() => setCurrentState('refund')}
+    />
+  );
 }

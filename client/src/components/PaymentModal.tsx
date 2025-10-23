@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { courseService } from '@/services/courseService';
+import { addDoc, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -37,27 +39,42 @@ export default function PaymentModal({
     setError('');
 
     try {
+      // Check if Razorpay is loaded
+      if (!window.Razorpay) {
+        throw new Error('Razorpay SDK not loaded');
+      }
+
       // Create order using direct service
       const orderData = await courseService.createPaymentOrder(courseName, userEmail);
 
-      // Initialize Razorpay
+      // Initialize Razorpay without order_id for frontend-only implementation
       const options = {
-        key: "rzp_test_your_key_here", // Replace with actual Razorpay key
+        key: "rzp_test_RWNpD510zwty8O",
         amount: orderData.amount,
-        currency: orderData.currency,
+        currency: "INR",
         name: 'Drishti Institute',
         description: `Enrollment for ${courseName}`,
-        order_id: orderData.orderId,
         handler: async (response: any) => {
           try {
-            // Verify payment using direct service
-            const verifyResult = await courseService.verifyPayment(courseName, response.razorpay_payment_id);
+            console.log('Payment successful:', response);
             
-            if (verifyResult.success) {
-              onPaymentSuccess(courseName);
-            } else {
-              throw new Error('Payment verification failed');
-            }
+            // Store transaction in Firebase
+            const transactionData = {
+              orderId: orderData.orderId,
+              paymentId: response.razorpay_payment_id,
+              courseName,
+              userEmail,
+              amount: orderData.amount,
+              status: 'completed',
+              completedAt: new Date(),
+            };
+            
+            // Save transaction to Firebase
+            await addDoc(collection(db, 'transactions'), transactionData);
+            console.log('Transaction saved to Firebase');
+            
+            onPaymentSuccess(courseName);
+            onClose();
           } catch (error) {
             console.error('Payment verification error:', error);
             setError('Payment verification failed. Please contact support.');
@@ -81,7 +98,6 @@ export default function PaymentModal({
     } catch (error) {
       console.error('Payment error:', error);
       setError('Failed to initiate payment. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -136,6 +152,16 @@ export default function PaymentModal({
                   </ul>
                 </div>
 
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                  <h4 className="font-semibold text-yellow-900 mb-2">Test Payment Info:</h4>
+                  <div className="text-sm text-yellow-800 space-y-1">
+                    <div><strong>Card:</strong> 4111 1111 1111 1111</div>
+                    <div><strong>Expiry:</strong> Any future date</div>
+                    <div><strong>CVV:</strong> Any 3 digits</div>
+                    <div><strong>Name:</strong> Any name</div>
+                  </div>
+                </div>
+
                 {error && (
                   <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
                     <AlertCircle className="h-4 w-4" />
@@ -162,7 +188,8 @@ export default function PaymentModal({
                 </div>
 
                 <div className="text-xs text-gray-500 text-center">
-                  Secure payment powered by Razorpay
+                  <div>Secure payment powered by Razorpay</div>
+                  <div className="text-yellow-600 mt-1">Test Mode - No real money will be charged</div>
                 </div>
               </CardContent>
             </Card>

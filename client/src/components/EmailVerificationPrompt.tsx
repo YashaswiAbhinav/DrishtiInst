@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Mail, RefreshCw, ArrowLeft } from 'lucide-react';
+import { Mail, RefreshCw, ArrowLeft, CheckCircle } from 'lucide-react';
 import { useAdvancedAuth } from '@/hooks/useAdvancedAuth';
 
 interface EmailVerificationPromptProps {
   userEmail: string;
   onBack: () => void;
   onResendEmail: () => Promise<void>;
+  onRefresh: () => Promise<void>;
 }
 
-export default function EmailVerificationPrompt({ userEmail, onBack, onResendEmail }: EmailVerificationPromptProps) {
+export default function EmailVerificationPrompt({ userEmail, onBack, onResendEmail, onRefresh }: EmailVerificationPromptProps) {
   const [isResending, setIsResending] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
 
   const handleResendEmail = async () => {
@@ -20,10 +22,28 @@ export default function EmailVerificationPrompt({ userEmail, onBack, onResendEma
     try {
       await onResendEmail();
       setResendMessage('Verification email sent! Please check your inbox and spam folder.');
-    } catch (error) {
-      setResendMessage('Failed to send email. Please try again.');
+    } catch (error: any) {
+      console.error('Resend email error:', error);
+      if (error.message?.includes('already verified')) {
+        setResendMessage('Your email is already verified! Click "I\'ve Verified My Email" to continue.');
+      } else {
+        setResendMessage('Failed to send email. Please try again in a few minutes.');
+      }
     } finally {
       setIsResending(false);
+    }
+  };
+
+  const handleRefreshVerification = async () => {
+    setIsRefreshing(true);
+    setResendMessage('');
+    try {
+      await onRefresh();
+      setResendMessage('Verification status refreshed! If you verified your email, you should be redirected shortly.');
+    } catch (error) {
+      setResendMessage('Failed to refresh. Please try again.');
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -59,8 +79,27 @@ export default function EmailVerificationPrompt({ userEmail, onBack, onResendEma
 
           <div className="space-y-2">
             <Button 
+              onClick={handleRefreshVerification} 
+              disabled={isRefreshing}
+              className="w-full bg-green-600 hover:bg-green-700"
+            >
+              {isRefreshing ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Checking...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  I've Verified My Email
+                </>
+              )}
+            </Button>
+            
+            <Button 
               onClick={handleResendEmail} 
               disabled={isResending}
+              variant="outline"
               className="w-full"
             >
               {isResending ? (
@@ -83,7 +122,7 @@ export default function EmailVerificationPrompt({ userEmail, onBack, onResendEma
           </div>
 
           <div className="text-xs text-gray-500 text-center">
-            After clicking the verification link, refresh this page to continue.
+            After clicking the verification link in your email, click "I've Verified My Email" above.
           </div>
         </CardContent>
       </Card>

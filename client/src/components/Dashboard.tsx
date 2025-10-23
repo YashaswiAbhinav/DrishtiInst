@@ -349,6 +349,7 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
         price={paymentModal.price}
         userEmail={user.email || ''}
         onPaymentSuccess={(courseName) => {
+          console.log('Payment successful for:', courseName, '- Now enrolling user');
           onEnrollCourse(courseName);
           setPaymentModal({ isOpen: false, courseName: '', price: 0 });
         }}

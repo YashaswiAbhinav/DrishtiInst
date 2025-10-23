@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { courseService } from '@/services/courseService';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -71,24 +72,35 @@ export default function CourseDetailPage({ courseId, user, onBack, onLogout, onP
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let mounted = true;
+
     const fetchCourseData = async () => {
       try {
         setLoading(true);
-        const response = await fetch(`/api/course/${courseId}`);
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const data = await response.json();
-        setCourse(data.course);
+        setError(null);
+
+        // Skip API call and use local service directly to avoid CORS/proxy issues
+        console.log('Using local course service for courseId:', courseId);
+        const fallback = await courseService.getCourseDetails(courseId);
+        if (mounted) setCourse(fallback as any);
       } catch (err) {
-        setError("Failed to fetch course data.");
-        console.error("Error fetching course data:", err);
+        console.error('Error fetching course data:', err);
+        setError('Failed to fetch course data. Make sure the backend /api is running or check network/proxy settings.');
+        // fallback to local stub
+        try {
+          const fallback = await courseService.getCourseDetails(courseId);
+          if (mounted) setCourse(fallback as any);
+        } catch (fallbackErr) {
+          console.error('Fallback getCourseDetails failed:', fallbackErr);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) setLoading(false);
       }
     };
 
     fetchCourseData();
+
+    return () => { mounted = false; };
   }, [courseId]);
 
   const isEnrolled = user.enrolledCourses.includes(courseId);
@@ -114,6 +126,10 @@ export default function CourseDetailPage({ courseId, user, onBack, onLogout, onP
     );
     return Math.round((watchedVideos / totalVideos) * 100);
   };
+
+  if (loading) {
+    return <div className="min-h-screen flex items-center justify-center">Loading course...</div>;
+  }
 
   if (!course) {
     return <div className="min-h-screen flex items-center justify-center">Course not found</div>;
