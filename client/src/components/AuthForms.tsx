@@ -48,8 +48,13 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
   const [mergeError, setMergeError] = useState('');
   // field-specific errors to display under inputs (email, username, phone, etc.)
   const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
-  const { sendPhoneOTP, verifyOTP, signInWithGoogle } = useAdvancedAuth();
-  const { mergeGoogleToExistingEmail } = useAdvancedAuth();
+  const { 
+    sendPhoneOTP, 
+    verifyOTP, 
+    signInWithGoogle, 
+    mergeGoogleToExistingEmail,
+    resetPassword: resetPasswordFromHook
+  } = useAdvancedAuth();
 
   // On mount, check if there's an oauth prefill saved (from Google sign-in)
   useEffect(() => {
@@ -223,11 +228,28 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
     setSuccess('');
     
     try {
-      const { resetPassword } = useAdvancedAuth();
-      await resetPassword(forgotData.identifier);
+      if (!forgotData.identifier) {
+        throw new Error('Please enter your email address');
+      }
+      
+      // Use the renamed hook function
+      await resetPasswordFromHook(forgotData.identifier);
+      
       setSuccess('Password reset email sent! Check your inbox and click the link to reset your password.');
+      // Clear the form after success
+      setForgotData(prev => ({ ...prev, identifier: '' }));
+      
     } catch (error: any) {
-      setError(error.message || 'Failed to send reset email');
+      console.error('Password reset error:', error);
+      if (error.code === 'auth/user-not-found') {
+        setError('No account found with this email address.');
+      } else if (error.code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else if (error.code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please try again later.');
+      } else {
+        setError(error.message || 'Failed to send reset email');
+      }
     } finally {
       setIsLoading(false);
     }
