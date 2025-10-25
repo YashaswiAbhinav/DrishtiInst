@@ -36,9 +36,11 @@ export default function LMSApp() {
   const { user, userData, loading, login, register, logout, enrollInCourse, sendEmailVerificationToUser, refreshUser } = useAdvancedAuth();
 
   useEffect(() => {
-    if (user && userData) {
-      // Check if email is verified before allowing dashboard access
-      if (user.emailVerified || !userData.email) {
+      if (user && userData) {
+      // Consider user verified if auth emailVerified OR Firestore emailVerified OR provider includes google
+      const providerIsGoogle = !!user.providerData?.some(p => p.providerId === 'google.com');
+      const firestoreVerified = !!userData.emailVerified;
+      if (user.emailVerified || !userData.email || providerIsGoogle || firestoreVerified) {
         setCurrentState('dashboard');
       } else {
         // User logged in but email not verified - show verification prompt
@@ -84,7 +86,7 @@ export default function LMSApp() {
       // Generate a simple device ID
       const deviceId = `device_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      const result = await register({
+      await register({
         name: registerData.name,
         username: registerData.username,
         email: registerData.email,
@@ -93,13 +95,10 @@ export default function LMSApp() {
         password: registerData.password,
         deviceId: deviceId
       });
-      
-      if (result.requiresOTP) {
-        // Handle OTP verification if needed
-        console.log('OTP verification required');
-      }
     } catch (error) {
       console.error('Registration failed:', error);
+      // Re-throw the error so AuthForms can handle it
+      throw error;
     }
   };
 

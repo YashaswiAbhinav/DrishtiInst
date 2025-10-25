@@ -16,17 +16,28 @@ export default function EmailVerificationPrompt({ userEmail, onBack, onResendEma
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
 
-  // Poll for verification status every 6 seconds while component is mounted
+  // Poll for verification status every 3 seconds while component is mounted
   useEffect(() => {
     let mounted = true;
+    let count = 0;
+    const maxAttempts = 40; // 2 minutes total
+
     const interval = setInterval(async () => {
-      if (!mounted) return;
-      try {
-        await onRefresh();
-      } catch (e) {
-        // ignore errors during polling
+      if (!mounted || count >= maxAttempts) {
+        clearInterval(interval);
+        return;
       }
-    }, 6000);
+      try {
+        console.log('Checking email verification status...');
+        await onRefresh();
+        count++;
+      } catch (e) {
+        console.error('Error checking verification status:', e);
+      }
+    }, 3000);
+
+    // Initial check
+    onRefresh().catch(console.error);
 
     return () => {
       mounted = false;

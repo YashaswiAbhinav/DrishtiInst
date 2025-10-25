@@ -166,7 +166,7 @@ export default function Dashboard({
                     Link email/password
                   </Button>
                 )}
-                <p className="text-sm font-medium">{user.name}</p>
+               
                 <p className="text-xs text-muted-foreground">Class {user.class}</p>
               </div>
             </div>

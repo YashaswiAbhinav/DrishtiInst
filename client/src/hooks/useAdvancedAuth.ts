@@ -28,6 +28,7 @@ import {
   onSnapshot 
 } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { linkWithPopup } from 'firebase/auth';
 
 interface UserData {
   uid: string;
@@ -206,50 +207,91 @@ export const useAdvancedAuth = () => {
     }
   };
 
+  // Merge flow: sign in to the existing email/password account, then link Google provider to it
+  const mergeGoogleToExistingEmail = async (email: string, password: string) => {
+    try {
+      // Sign in to the existing email account
+      const signInResult = await signInWithEmailAndPassword(auth, email, password);
+      const existingUser = signInResult.user;
+
+      // Link Google provider via popup to the existing signed-in user
+      const provider = new GoogleAuthProvider();
+      const linkResult = await linkWithPopup(existingUser, provider);
+
+      // Update Firestore user doc if needed
+      const userDocRef = doc(db, 'users', existingUser.uid);
+      try {
+        await updateDoc(userDocRef, { emailVerified: true });
+      } catch (e) {
+        console.warn('Failed to update Firestore emailVerified during merge:', e);
+      }
+
+      return linkResult;
+    } catch (error) {
+      console.error('Merge failed:', error);
+      throw error;
+    }
+  };
+
   const register = async (data: RegisterData) => {
     console.log('Registration attempt with data:', { ...data, password: '[HIDDEN]' });
 
     // Basic uniqueness checks for email, username, phone
     try {
+      // Check email uniqueness in Firestore
       if (data.email) {
         const q = query(collection(db, 'users'), where('email', '==', data.email));
         const snap = await getDocs(q);
         if (!snap.empty) {
-          // If the existing doc belongs to the current auth user, it's fine
-          if (!(auth.currentUser && snap.docs[0].id === auth.currentUser.uid)) {
+          const existingUid = snap.docs[0].id;
+          if (!(auth.currentUser && existingUid === auth.currentUser.uid)) {
             const err: any = new Error('Email already in use');
             err.code = 'auth/email-already-in-use';
+            err.meta = { field: 'email', existingUid, existingEmail: snap.docs[0].data()?.email };
+            console.error('Email uniqueness check failed:', err);
             throw err;
           }
         }
       }
 
+      // Check username uniqueness in Firestore
       if (data.username) {
         const q2 = query(collection(db, 'users'), where('userName', '==', data.username));
         const snap2 = await getDocs(q2);
         if (!snap2.empty) {
-          if (!(auth.currentUser && snap2.docs[0].id === auth.currentUser.uid)) {
+          const existingUid = snap2.docs[0].id;
+          if (!(auth.currentUser && existingUid === auth.currentUser.uid)) {
             const err: any = new Error('Username already in use');
             err.code = 'auth/username-already-in-use';
+            err.meta = { field: 'username', existingUid };
+            console.error('Username uniqueness check failed:', err);
             throw err;
           }
         }
       }
 
+      // Check phone uniqueness in Firestore
       if (data.phone) {
         const q3 = query(collection(db, 'users'), where('phone', '==', data.phone));
         const snap3 = await getDocs(q3);
         if (!snap3.empty) {
-          if (!(auth.currentUser && snap3.docs[0].id === auth.currentUser.uid)) {
+          const existingUid = snap3.docs[0].id;
+          if (!(auth.currentUser && existingUid === auth.currentUser.uid)) {
             const err: any = new Error('Phone already in use');
             err.code = 'auth/phone-already-in-use';
+            err.meta = { field: 'phone', existingUid };
+            console.error('Phone uniqueness check failed:', err);
             throw err;
           }
         }
       }
     } catch (e) {
+      console.error('Uniqueness check error:', e);
+      // Stop registration if any uniqueness check fails
       throw e;
     }
+
+    // Only proceed with registration if all uniqueness checks pass
 
     // If there's already an authenticated user (e.g. Google sign-in), create/update Firestore doc
     if (auth.currentUser && auth.currentUser.email === data.email) {
@@ -411,14 +453,19 @@ export const useAdvancedAuth = () => {
       // Attempt to link the credential
       const result = await linkWithCredential(user, credential);
       
+      // Determine verification state from the auth user returned
+      const isVerified = !!result.user.emailVerified;
+
       // Update the user document
       await updateDoc(doc(db, 'users', user.uid), {
         email: email,
-        emailVerified: false
+        emailVerified: isVerified
       });
       
-      // Send email verification
-      await sendEmailVerification(result.user);
+      // Send email verification only if not verified
+      if (!isVerified) {
+        await sendEmailVerification(result.user);
+      }
       
       return result;
     } catch (error: any) {
@@ -481,6 +528,20 @@ export const useAdvancedAuth = () => {
   const sendEmailVerificationToUser = async () => {
     if (!user) throw new Error('No user logged in');
     
+    // Check rate limiting
+    const lastSentStr = localStorage.getItem('lastVerificationEmailSent');
+    if (lastSentStr) {
+      const lastSent = parseInt(lastSentStr);
+      const now = Date.now();
+      const timeDiff = now - lastSent;
+      
+      // Rate limit to one email every 30 seconds
+      if (timeDiff < 30000) {
+        const waitSeconds = Math.ceil((30000 - timeDiff) / 1000);
+        throw new Error(`Please wait ${waitSeconds} seconds before requesting another verification email`);
+      }
+    }
+    
     // Reload user to get fresh status
     await user.reload();
     
@@ -489,17 +550,43 @@ export const useAdvancedAuth = () => {
     }
     
     await sendEmailVerification(user);
+    
+    // Store the send time for rate limiting
+    localStorage.setItem('lastVerificationEmailSent', Date.now().toString());
+    
     console.log('Manual email verification sent');
   };
 
   const refreshUser = async () => {
     if (!user) return;
-    await user.reload();
-    // Update local user state so UI reacts to emailVerified changes
-    const current = auth.currentUser;
-    if (current) {
+    
+    try {
+      // Force reload the Firebase user
+      await user.reload();
+      const current = auth.currentUser;
+      if (!current) return;
+
+      // Update local user state
       setUser(current);
-      console.log('User reloaded, emailVerified:', current.emailVerified);
+      
+      // Get current Firestore user data
+      const userDocRef = doc(db, 'users', current.uid);
+      const userDoc = await getDoc(userDocRef);
+      
+      // Sync verification status if needed
+      if (current.emailVerified && userDoc.exists() && !userDoc.data()?.emailVerified) {
+        await updateDoc(userDocRef, {
+          emailVerified: true
+        });
+        console.log('Updated Firestore emailVerified flag to match Firebase auth');
+      }
+      
+      console.log('User refreshed - Firebase verified:', current.emailVerified);
+      
+      return current.emailVerified;
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+      throw error;
     }
   };
 
@@ -538,6 +625,7 @@ export const useAdvancedAuth = () => {
     linkEmailToAccount,
     linkPhoneToAccount,
     signInWithGoogle,
+    mergeGoogleToExistingEmail,
     resetPassword,
     resetPasswordWithPhone,
     updateUserPassword,

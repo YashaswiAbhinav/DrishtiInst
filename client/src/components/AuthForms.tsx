@@ -43,7 +43,13 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [pendingUserData, setPendingUserData] = useState<RegisterData | null>(null);
   const [oauthPrefilled, setOauthPrefilled] = useState(false);
+  const [mergeMode, setMergeMode] = useState(false);
+  const [mergePassword, setMergePassword] = useState('');
+  const [mergeError, setMergeError] = useState('');
+  // field-specific errors to display under inputs (email, username, phone, etc.)
+  const [fieldErrors, setFieldErrors] = useState<{ [key: string]: string }>({});
   const { sendPhoneOTP, verifyOTP, signInWithGoogle } = useAdvancedAuth();
+  const { mergeGoogleToExistingEmail } = useAdvancedAuth();
 
   // On mount, check if there's an oauth prefill saved (from Google sign-in)
   useEffect(() => {
@@ -109,26 +115,85 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
     setIsLoading(true);
     setError('');
     setSuccess('');
+    setFieldErrors({});
+
+    // Client-side validation
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(registerData.email)) {
+      setFieldErrors({ email: 'Please enter a valid email address.' });
+      setIsLoading(false);
+      return;
+    }
+
+    // Password validation: at least 8 chars, 1 uppercase, 1 lowercase, 1 number, 1 special char
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+    if (!passwordRegex.test(registerData.password)) {
+      setFieldErrors({ 
+        password: 'Password must be at least 8 characters long and include: 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character (@$!%*?&).' 
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_\-]{3,20}$/.test(registerData.username)) {
+      setFieldErrors({ username: 'Username must be 3-20 characters and may contain letters, numbers, underscore or hyphen.' });
+      setIsLoading(false);
+      return;
+    }
+
     try {
       // Direct registration with email/password (no OTP required)
       await onRegister(registerData);
-      setSuccess('Registration successful! Please check your email for verification link.');
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        setError('This email is already registered. Please login instead or use a different email.');
-      } else if (error.code === 'auth/weak-password') {
-        setError('Password is too weak. Please use at least 6 characters.');
-      } else if (error.code === 'auth/invalid-email') {
-        setError('Please enter a valid email address.');
-      } else if (error.code === 'auth/username-already-in-use') {
-        setError('This username is already taken. Please choose another username.');
-      } else if (error.code === 'auth/phone-already-in-use') {
-        setError('This phone number is already registered. Please use a different phone number.');
+
+      // Only show success if registration succeeded
+      if (oauthPrefilled) {
+        setSuccess('Registration complete. Redirecting to dashboard...');
       } else {
+        setSuccess('Registration successful! Please check your email for verification link.');
+      }
+    } catch (error: any) {
+      // Handle errors and set field-specific messages
+      console.log('Registration error:', error);
+      setFieldErrors({});
+      
+      if (error.code === 'auth/email-already-in-use') {
+        const msg = error.meta?.existingEmail
+          ? `The email ${error.meta.existingEmail} is already registered.`
+          : 'This email is already registered. Please login instead or use a different email.';
+        setFieldErrors({ email: msg });
+        setError(`${msg} ${error.meta?.existingUid ? 'If this is your account, please login or use Merge Accounts.' : ''}`.trim());
+        setSuccess(''); // Clear any success message
+      } else if (error.message && error.message.includes('credential-already-in-use')) {
+        setError('This email is already linked to another account. You can merge accounts by signing into the other account and linking providers.');
+        setMergeMode(true);
+        setSuccess(''); // Clear any success message
+      } else if (error.code === 'auth/username-already-in-use') {
+        setFieldErrors({ username: 'This username is already taken. Please choose another username.' });
+        setError('This username is already taken. Please choose another username.');
+        setSuccess(''); // Clear any success message
+      } else if (error.code === 'auth/phone-already-in-use') {
+        setFieldErrors({ phone: 'This phone number is already registered. Please use a different phone number.' });
+        setError('This phone number is already registered. Please use a different phone number.');
+        setSuccess(''); // Clear any success message
+      } else {
+        // For any other error
         setError(error.message || 'Registration failed');
+        setSuccess(''); // Clear any success message
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleMerge = async () => {
+    setMergeError('');
+    if (!registerData.email) return setMergeError('Missing email');
+    if (!mergePassword) return setMergeError('Enter the password for the existing account');
+    try {
+      await mergeGoogleToExistingEmail(registerData.email, mergePassword);
+      // After successful merge, the auth state should update and redirect
+      setMergeMode(false);
+    } catch (e: any) {
+      setMergeError(e.message || 'Merge failed');
     }
   };
 
@@ -309,6 +374,7 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                   <Input
                     id="password"
                     type="password"
+                    autoComplete="current-password"
                     value={loginData.password}
                     onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                     placeholder="Enter your password"
@@ -365,6 +431,9 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                       required
                       data-testid="input-reg-username"
                     />
+                    {fieldErrors.username && (
+                      <div className="text-red-500 text-sm mt-1">{fieldErrors.username}</div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="reg-name">Full Name</Label>
@@ -390,6 +459,9 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                       readOnly={oauthPrefilled}
                       data-testid="input-reg-email"
                     />
+                  {fieldErrors.email && (
+                    <div className="text-red-500 text-sm mt-1">{fieldErrors.email}</div>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -402,6 +474,9 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                       required
                       data-testid="input-reg-phone"
                     />
+                    {fieldErrors.phone && (
+                      <div className="text-red-500 text-sm mt-1">{fieldErrors.phone}</div>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="reg-class">Class</Label>
@@ -429,6 +504,19 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                     required
                     data-testid="input-reg-password"
                   />
+                  <div className="text-sm text-muted-foreground mt-1">
+                    Password must contain:
+                    <ul className="list-disc list-inside ml-1 space-y-1">
+                      <li>At least 8 characters</li>
+                      <li>One uppercase letter (A-Z)</li>
+                      <li>One lowercase letter (a-z)</li>
+                      <li>One number (0-9)</li>
+                      <li>One special character (@$!%*?&)</li>
+                    </ul>
+                  </div>
+                  {fieldErrors.password && (
+                    <div className="text-red-500 text-sm mt-1">{fieldErrors.password}</div>
+                  )}
                 </div>
                 {error && (
                   <div className="text-red-500 text-sm text-center">{error}</div>
@@ -436,9 +524,22 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                 {success && (
                   <div className="text-green-600 text-sm text-center bg-green-50 p-3 rounded-lg">{success}</div>
                 )}
-                <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-register-submit">
-                  {isLoading ? 'Creating Account...' : 'Register Account'}
-                </Button>
+                  <Button type="submit" className="w-full" disabled={isLoading} data-testid="button-register-submit">
+                    {isLoading ? 'Creating Account...' : 'Register Account'}
+                  </Button>
+
+                  {mergeMode && (
+                    <div className="mt-4 p-3 border rounded">
+                      <div className="text-sm mb-2">This email already exists. To merge your Google account into the existing account, enter the existing account's password:</div>
+                      <Label htmlFor="merge-password">Existing account password</Label>
+                      <Input id="merge-password" type="password" value={mergePassword} onChange={(e) => setMergePassword(e.target.value)} />
+                      {mergeError && <div className="text-red-500 text-sm mt-2">{mergeError}</div>}
+                      <div className="flex gap-2 mt-3">
+                        <Button onClick={handleMerge} className="flex-1">Merge Accounts</Button>
+                        <Button variant="outline" onClick={() => setMergeMode(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
               </form>
             </CardContent>
           </Card>
