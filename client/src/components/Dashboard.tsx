@@ -32,15 +32,23 @@ interface DashboardProps {
   onViewCourse: (courseId: string) => void;
   onEnrollCourse: (courseId: string) => void;
   onViewAllCourses?: () => void;
-
   onViewLMSContent?: () => void;
+  onLinkEmail?: () => void;
 }
 
 
 
 
 
-export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse, onViewAllCourses, onViewLMSContent }: DashboardProps) {
+export default function Dashboard({ 
+  user, 
+  onLogout, 
+  onViewCourse, 
+  onEnrollCourse, 
+  onViewAllCourses, 
+  onViewLMSContent,
+  onLinkEmail 
+}: DashboardProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
@@ -148,6 +156,16 @@ export default function Dashboard({ user, onLogout, onViewCourse, onEnrollCourse
                 <AvatarFallback>{user.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
               </Avatar>
               <div className="hidden md:block">
+                <div className="text-sm font-medium">{user.name}</div>
+                {!user.email && onLinkEmail && (
+                  <Button
+                    variant="ghost"
+                    className="text-xs text-blue-500 p-0 h-auto"
+                    onClick={onLinkEmail}
+                  >
+                    Link email/password
+                  </Button>
+                )}
                 <p className="text-sm font-medium">{user.name}</p>
                 <p className="text-xs text-muted-foreground">Class {user.class}</p>
               </div>

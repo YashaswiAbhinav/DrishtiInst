@@ -1,4 +1,20 @@
-import 'dotenv/config';
+import { config } from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables
+config({ path: resolve(__dirname, '../.env') });
+config({ path: resolve(__dirname, '../.env.development') });
+
+// Debug environment variables
+console.log('Environment:', {
+  NODE_ENV: process.env.NODE_ENV,
+  RAZORPAY_KEY_ID: process.env.RAZORPAY_KEY_ID,
+  RAZORPAY_KEY_SECRET: process.env.RAZORPAY_KEY_SECRET?.substring(0, 4) + '...'
+});
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";

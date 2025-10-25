@@ -8,6 +8,8 @@ import {
   updateProfile,
   sendPasswordResetEmail,
   sendEmailVerification,
+  GoogleAuthProvider,
+  signInWithPopup,
   RecaptchaVerifier,
   signInWithPhoneNumber,
   linkWithCredential,
@@ -166,17 +168,157 @@ export const useAdvancedAuth = () => {
     }
   };
 
+  const signInWithGoogle = async () => {
+    try {
+      const provider = new GoogleAuthProvider();
+      const result = await signInWithPopup(auth, provider);
+      const firebaseUser = result.user;
+
+      // Check if user document exists
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      if (userDoc.exists()) {
+        // Existing user - nothing more to do, auth state listener will handle redirect
+        return { user: firebaseUser, exists: true };
+      }
+
+      // New OAuth user - return prefill data for registration
+        const prefill = {
+          email: firebaseUser.email || '',
+          name: firebaseUser.displayName || '',
+          emailVerified: !!firebaseUser.emailVerified
+        };
+
+        try {
+          // Persist prefill so a remounted AuthForms can read it after app-state changes
+          localStorage.setItem('oauth_prefill', JSON.stringify(prefill));
+        } catch (e) {
+          // ignore storage errors
+        }
+
+        return {
+          user: firebaseUser,
+          exists: false,
+          prefill
+        };
+    } catch (error: any) {
+      console.error('Google sign-in failed', error);
+      throw error;
+    }
+  };
+
   const register = async (data: RegisterData) => {
     console.log('Registration attempt with data:', { ...data, password: '[HIDDEN]' });
-    
+
+    // Basic uniqueness checks for email, username, phone
+    try {
+      if (data.email) {
+        const q = query(collection(db, 'users'), where('email', '==', data.email));
+        const snap = await getDocs(q);
+        if (!snap.empty) {
+          // If the existing doc belongs to the current auth user, it's fine
+          if (!(auth.currentUser && snap.docs[0].id === auth.currentUser.uid)) {
+            const err: any = new Error('Email already in use');
+            err.code = 'auth/email-already-in-use';
+            throw err;
+          }
+        }
+      }
+
+      if (data.username) {
+        const q2 = query(collection(db, 'users'), where('userName', '==', data.username));
+        const snap2 = await getDocs(q2);
+        if (!snap2.empty) {
+          if (!(auth.currentUser && snap2.docs[0].id === auth.currentUser.uid)) {
+            const err: any = new Error('Username already in use');
+            err.code = 'auth/username-already-in-use';
+            throw err;
+          }
+        }
+      }
+
+      if (data.phone) {
+        const q3 = query(collection(db, 'users'), where('phone', '==', data.phone));
+        const snap3 = await getDocs(q3);
+        if (!snap3.empty) {
+          if (!(auth.currentUser && snap3.docs[0].id === auth.currentUser.uid)) {
+            const err: any = new Error('Phone already in use');
+            err.code = 'auth/phone-already-in-use';
+            throw err;
+          }
+        }
+      }
+    } catch (e) {
+      throw e;
+    }
+
+    // If there's already an authenticated user (e.g. Google sign-in), create/update Firestore doc
+    if (auth.currentUser && auth.currentUser.email === data.email) {
+      const current = auth.currentUser;
+      console.log('Detected existing authenticated user during registration:', current.uid);
+
+      // Update display name if needed
+      try {
+        await updateProfile(current, { displayName: data.name });
+      } catch (e) {
+        console.warn('Failed to update profile:', e);
+      }
+
+      const userDocData = {
+        uid: current.uid,
+        name: data.name,
+        email: data.email,
+        userName: data.username || null,
+        phone: data.phone || null,
+        userClass: data.class,
+        listOfCourses: [],
+        coins: 0,
+        deviceId: data.deviceId || null,
+        password: data.password || null,
+        emailVerified: !!current.emailVerified,
+        phoneVerified: false,
+        createdAt: new Date()
+      };
+
+      await setDoc(doc(db, 'users', current.uid), userDocData);
+
+      // If the user provided a password during registration, link the email/password credential
+      // to the existing OAuth user so they can sign in with email/password later.
+      if (data.password) {
+        try {
+          const credential = EmailAuthProvider.credential(data.email!, data.password);
+          await linkWithCredential(current, credential as any);
+          // Reload the user to reflect new providers
+          await current.reload();
+          // Update user state if necessary
+          console.log('Linked email/password to OAuth account');
+        } catch (e: any) {
+          console.warn('Failed to link email/password to OAuth account:', e);
+          // propagate specific error for UI to handle if desired
+          throw e;
+        }
+      }
+
+      // If email is not verified but provider verified it (Google), update flag
+      if (current.emailVerified) {
+        try {
+          await updateDoc(doc(db, 'users', current.uid), { emailVerified: true });
+        } catch (e) {
+          console.warn('Failed to update emailVerified in user doc:', e);
+        }
+      }
+
+      return { user: current, requiresOTP: false };
+    }
+
+    // Standard email/password registration
     if (data.email && data.password) {
       console.log('Creating user with email and password');
       const result = await createUserWithEmailAndPassword(auth, data.email, data.password);
       const user = result.user;
       console.log('User created successfully:', user.uid);
-      
+
       await updateProfile(user, { displayName: data.name });
-      
+
       const userData = {
         uid: user.uid,
         name: data.name,
@@ -192,9 +334,9 @@ export const useAdvancedAuth = () => {
         phoneVerified: false,
         createdAt: new Date()
       };
-      
+
       await setDoc(doc(db, 'users', user.uid), userData);
-      
+
       // Send email verification
       try {
         await sendEmailVerification(user);
@@ -202,10 +344,10 @@ export const useAdvancedAuth = () => {
       } catch (error) {
         console.error('Failed to send email verification:', error);
       }
-      
+
       return { user, requiresOTP: false };
     }
-    
+
     throw new Error('Email and password are required');
   };
 
@@ -262,13 +404,29 @@ export const useAdvancedAuth = () => {
   const linkEmailToAccount = async (email: string, password: string) => {
     if (!user) throw new Error('No user logged in');
     
-    const credential = EmailAuthProvider.credential(email, password);
-    await linkWithCredential(user, credential);
-    
-    await updateDoc(doc(db, 'users', user.uid), {
-      email: email,
-      emailVerified: false
-    });
+    try {
+      // Create the email credential
+      const credential = EmailAuthProvider.credential(email, password);
+      
+      // Attempt to link the credential
+      const result = await linkWithCredential(user, credential);
+      
+      // Update the user document
+      await updateDoc(doc(db, 'users', user.uid), {
+        email: email,
+        emailVerified: false
+      });
+      
+      // Send email verification
+      await sendEmailVerification(result.user);
+      
+      return result;
+    } catch (error: any) {
+      if (error.code === 'auth/credential-already-in-use') {
+        throw new Error('This email is already registered with another account. Please use a different email address.');
+      }
+      throw error;
+    }
   };
 
   const sendPhoneOTP = async (phoneNumber: string) => {
@@ -337,7 +495,12 @@ export const useAdvancedAuth = () => {
   const refreshUser = async () => {
     if (!user) return;
     await user.reload();
-    console.log('User reloaded, emailVerified:', user.emailVerified);
+    // Update local user state so UI reacts to emailVerified changes
+    const current = auth.currentUser;
+    if (current) {
+      setUser(current);
+      console.log('User reloaded, emailVerified:', current.emailVerified);
+    }
   };
 
   const enrollInCourse = async (courseName: string) => {
@@ -374,6 +537,7 @@ export const useAdvancedAuth = () => {
     sendPhoneOTP,
     linkEmailToAccount,
     linkPhoneToAccount,
+    signInWithGoogle,
     resetPassword,
     resetPasswordWithPhone,
     updateUserPassword,

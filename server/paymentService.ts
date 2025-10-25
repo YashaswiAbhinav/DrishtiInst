@@ -1,13 +1,14 @@
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
+import { config } from './config';
 
 export class PaymentService {
   private razorpay: Razorpay;
 
   constructor() {
     this.razorpay = new Razorpay({
-      key_id: process.env.RAZORPAY_KEY_ID!,
-      key_secret: process.env.RAZORPAY_KEY_SECRET!,
+      key_id: config.razorpay.keyId,
+      key_secret: config.razorpay.keySecret,
     });
   }
 

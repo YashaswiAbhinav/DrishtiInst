@@ -7,3 +7,5 @@ vite.config.ts.*
 drive-api-file.json
 .env
 .env.example
+.env.development
+.env.production

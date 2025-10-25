@@ -11,13 +11,14 @@ import EmailVerificationPrompt from "./EmailVerificationPrompt";
 import ContactUs from "./ContactUs";
 import TermsAndConditions from "./TermsAndConditions";
 import RefundPolicy from "./RefundPolicy";
+import LinkEmailPassword from "./LinkEmailPassword";
 
 import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
 
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content' | 'email-verification' | 'contact' | 'terms' | 'refund';
+type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content' | 'email-verification' | 'contact' | 'terms' | 'refund' | 'link-email';
 
 interface User {
   name: string;
@@ -43,7 +44,21 @@ export default function LMSApp() {
         // User logged in but email not verified - show verification prompt
         setCurrentState('email-verification');
       }
-    } else if (!loading) {
+      return;
+    }
+
+    // If user is signed in but there's no Firestore user doc yet,
+    // this is likely a fresh OAuth sign-in (Google). Send them to
+    // the registration flow so they can complete profile creation.
+    if (user && !userData && !loading) {
+      const isGoogle = user.providerData?.some(p => p.providerId === 'google.com');
+      if (isGoogle) {
+        setCurrentState('auth');
+        return;
+      }
+    }
+
+    if (!loading) {
       setCurrentState('welcome');
     }
   }, [user, userData, loading, user?.emailVerified]);
@@ -193,6 +208,14 @@ export default function LMSApp() {
     email: userData.email || ''
   };
 
+  if (currentState === 'link-email') {
+    return (
+      <LinkEmailPassword
+        onBack={() => setCurrentState('dashboard')}
+      />
+    );
+  }
+
   if (currentState === 'dashboard') {
     return (
       <Dashboard
@@ -201,8 +224,8 @@ export default function LMSApp() {
         onViewCourse={handleViewCourse}
         onEnrollCourse={handleEnrollCourse}
         onViewAllCourses={handleViewAllCourses}
-
         onViewLMSContent={handleViewLMSContent}
+        onLinkEmail={() => setCurrentState('link-email')}
       />
     );
   }

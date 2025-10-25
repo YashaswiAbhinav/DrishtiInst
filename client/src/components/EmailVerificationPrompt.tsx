@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, RefreshCw, ArrowLeft, CheckCircle } from 'lucide-react';
@@ -15,6 +15,24 @@ export default function EmailVerificationPrompt({ userEmail, onBack, onResendEma
   const [isResending, setIsResending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [resendMessage, setResendMessage] = useState('');
+
+  // Poll for verification status every 6 seconds while component is mounted
+  useEffect(() => {
+    let mounted = true;
+    const interval = setInterval(async () => {
+      if (!mounted) return;
+      try {
+        await onRefresh();
+      } catch (e) {
+        // ignore errors during polling
+      }
+    }, 6000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [onRefresh]);
 
   const handleResendEmail = async () => {
     setIsResending(true);

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,29 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
   const [success, setSuccess] = useState('');
   const [confirmationResult, setConfirmationResult] = useState<any>(null);
   const [pendingUserData, setPendingUserData] = useState<RegisterData | null>(null);
-  const { sendPhoneOTP, verifyOTP } = useAdvancedAuth();
+  const [oauthPrefilled, setOauthPrefilled] = useState(false);
+  const { sendPhoneOTP, verifyOTP, signInWithGoogle } = useAdvancedAuth();
+
+  // On mount, check if there's an oauth prefill saved (from Google sign-in)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('oauth_prefill');
+      if (raw) {
+        const parsed = JSON.parse(raw) as { email?: string; name?: string; emailVerified?: boolean };
+        setRegisterData((prev) => ({
+          ...prev,
+          email: parsed.email || prev.email,
+          name: parsed.name || prev.name
+        }));
+        setOauthPrefilled(true);
+        setActiveTab('register');
+        // remove after reading
+        localStorage.removeItem('oauth_prefill');
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -52,6 +74,31 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
       await onLogin(loginData.username, loginData.password);
     } catch (error: any) {
       setError(error.message || 'Login failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const res: any = await signInWithGoogle();
+      // If user exists in Firestore, auth state listener will route to dashboard
+      if (res && res.exists === false && res.prefill) {
+        // Prefill registration form and switch to register tab
+        setRegisterData({
+          username: '',
+          name: res.prefill.name || '',
+          email: res.prefill.email || '',
+          phone: '',
+          class: '',
+          password: ''
+        });
+        setActiveTab('register');
+      }
+    } catch (error: any) {
+      setError(error.message || 'Google sign-in failed');
     } finally {
       setIsLoading(false);
     }
@@ -73,6 +120,10 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
         setError('Password is too weak. Please use at least 6 characters.');
       } else if (error.code === 'auth/invalid-email') {
         setError('Please enter a valid email address.');
+      } else if (error.code === 'auth/username-already-in-use') {
+        setError('This username is already taken. Please choose another username.');
+      } else if (error.code === 'auth/phone-already-in-use') {
+        setError('This phone number is already registered. Please use a different phone number.');
       } else {
         setError(error.message || 'Registration failed');
       }
@@ -273,6 +324,15 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                 </Button>
                 <Button
                   type="button"
+                  variant="outline"
+                  onClick={handleGoogleSignIn}
+                  className="w-full mt-3"
+                  data-testid="button-google-signin"
+                >
+                  Sign in with Google
+                </Button>
+                <Button
+                  type="button"
                   variant="ghost"
                   onClick={() => setActiveTab('forgot')}
                   className="w-full text-sm"
@@ -327,8 +387,9 @@ export default function AuthForms({ onLogin, onRegister, onBack }: AuthFormsProp
                     onChange={(e) => setRegisterData({ ...registerData, email: e.target.value })}
                     placeholder="your.email@example.com"
                     required
-                    data-testid="input-reg-email"
-                  />
+                      readOnly={oauthPrefilled}
+                      data-testid="input-reg-email"
+                    />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
