@@ -104,30 +104,52 @@ export const courseService = {
   },
 
   async createPaymentOrder(courseName: string, userEmail: string) {
-    const amount = this.coursePricing[courseName as keyof typeof this.coursePricing];
-    
-    if (!amount) {
-      throw new Error("Invalid course name");
-    }
+  const amount = this.coursePricing[courseName as keyof typeof this.coursePricing];
 
-    // Create order record in Firebase
-    const orderId = `order_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    const orderData = {
-      orderId,
-      courseName,
-      userEmail,
-      amount: amount * 100, // Razorpay expects amount in paise
-      currency: "INR",
-      status: 'created',
-      createdAt: new Date(),
-    };
-    
-    // Store order in Firebase
-    await addDoc(collection(db, 'payment_orders'), orderData);
-    
-    return orderData;
-  },
+  if (!amount) {
+    throw new Error('Invalid course name');
+  }
+
+  // Get the payment server URL from environment
+  const baseUrl = (import.meta as any).env.VITE_PAYMENT_SERVER_URL;
+  if (!baseUrl) {
+    throw new Error('Payment server URL not configured. Set VITE_PAYMENT_SERVER_URL in .env');
+  }
+
+  const endpoint = `${baseUrl.replace(/\/$/, '')}/api/payment/create-order`;
+  console.log('Creating payment order at:', endpoint);
+
+  // Get Firebase ID token for auth
+  const { auth } = await import('@/lib/firebase');
+  let headers: Record<string, string> = {
+    'Content-Type': 'application/json'
+  };
+
+  if (auth.currentUser) {
+    const token = await auth.currentUser.getIdToken();
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ courseName, userEmail })
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(`Failed creating server order: ${response.status} ${text}`);
+  }
+
+  const data = await response.json();
+  return {
+    orderId: data.orderId || data.order?.id,
+    amount: data.amount || data.order?.amount,
+    currency: data.currency || data.order?.currency,
+    courseName,
+    price: data.price || amount
+  };
+},
 
 
 };

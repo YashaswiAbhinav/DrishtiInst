@@ -1,7 +1,11 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
+import express from 'express';
+import type { firestore } from 'firebase-admin';
 import { driveService } from "./driveService";
 import { paymentService } from "./paymentService";
+import { admin } from './firebaseAdmin';
+import { requireAuth, AuthedRequest } from './middleware/auth';
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get available courses (all classes)
@@ -172,25 +176,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ message: 'Cache cleared successfully' });
   });
 
-  // Payment routes
-  app.post('/api/payment/create-order', async (req, res) => {
+  // Webhook endpoint: must use raw body to verify signature. Mount here before JSON body is consumed.
+  app.post('/api/payment/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      const signature = req.headers['x-razorpay-signature'] as string | undefined;
+      const secret = process.env.RAZORPAY_WEBHOOK_SECRET || '';
+      if (!signature || !secret) {
+        console.warn('Webhook missing signature or secret not configured');
+        return res.status(400).send('invalid');
+      }
+
+      const payload = req.body as Buffer;
+      const expected = require('crypto')
+        .createHmac('sha256', secret)
+        .update(payload)
+        .digest('hex');
+
+      if (expected !== signature) {
+        console.warn('Webhook signature mismatch');
+        return res.status(400).send('invalid signature');
+      }
+
+      const bodyJson = JSON.parse(payload.toString('utf8'));
+      const event = bodyJson.event;
+      console.log('Razorpay webhook event:', event);
+
+      // Handle payment events
+      if (event === 'payment.captured' || event === 'payment.authorized') {
+        const paymentEntity = bodyJson.payload?.payment?.entity;
+        if (paymentEntity && paymentEntity.id) {
+          const db = admin.firestore();
+          const paymentId = paymentEntity.id;
+          const orderId = paymentEntity.order_id;
+          const amount = paymentEntity.amount;
+
+          const docRef = db.collection('payments').doc(paymentId);
+          await docRef.set({
+            razorpayPaymentId: paymentId,
+            razorpayOrderId: orderId,
+            amount,
+            status: paymentEntity.status || event,
+            raw: paymentEntity,
+            receivedAt: admin.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+
+          // Optionally: enroll user based on stored order document
+          try {
+            const orderDoc = await db.collection('orders').doc(orderId).get();
+            if (orderDoc.exists) {
+              const orderData = orderDoc.data() || {};
+              const uid = orderData.uid;
+              const courseName = orderData.courseName;
+              if (uid && courseName) {
+                const enrollmentRef = db.collection('users').doc(uid).collection('enrollments').doc(courseName);
+                await enrollmentRef.set({
+                  courseName,
+                  enrolledAt: admin.firestore.FieldValue.serverTimestamp(),
+                  paymentId
+                }, { merge: true });
+              }
+            }
+          } catch (e) {
+            console.error('Webhook enrollment error', e);
+          }
+        }
+      }
+
+      return res.status(200).send('ok');
+    } catch (err) {
+      console.error('Webhook processing error', err);
+      return res.status(500).send('error');
+    }
+  });
+
+  app.post('/api/payment/create-order', requireAuth, async (req, res) => {
     try {
       const { courseName, userEmail } = req.body;
-      
+      const uid = (req as AuthedRequest).user?.uid;
+
       if (!courseName || !userEmail) {
         return res.status(400).json({ error: 'Course name and user email are required' });
       }
 
       const pricing = paymentService.getCoursePricing();
       const amount = pricing[courseName as keyof typeof pricing];
-      
       if (!amount) {
         return res.status(400).json({ error: 'Invalid course name' });
       }
 
       const receipt = `course_${courseName.replace(/\s+/g, '_').toLowerCase()}_${Date.now()}`;
       const order = await paymentService.createOrder(amount, 'INR', receipt);
-      
+
+      // Persist server-side order mapping for later verification/webhook processing
+      try {
+        const db = admin.firestore();
+        await db.collection('orders').doc(order.id).set({
+          orderId: order.id,
+          uid: uid || null,
+          userEmail,
+          courseName,
+          amount: order.amount,
+          currency: order.currency,
+          status: 'created',
+          createdAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      } catch (e) {
+        console.error('Failed to persist order to Firestore', e);
+      }
+
       res.json({
         orderId: order.id,
         amount: order.amount,
@@ -206,21 +299,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/payment/verify', async (req, res) => {
     try {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseName, userEmail } = req.body;
-      
-      const isValid = paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature);
-      
-      if (isValid) {
-        // Payment verified successfully
-        res.json({ 
-          success: true, 
-          message: 'Payment verified successfully',
-          courseName,
-          paymentId: razorpay_payment_id
-        });
-      } else {
-        res.status(400).json({ error: 'Payment verification failed' });
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, courseName } = req.body;
+      if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ error: 'Missing parameters' });
       }
+
+      const isValid = paymentService.verifyPayment(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+      if (!isValid) return res.status(400).json({ error: 'Payment verification failed' });
+
+      const db = admin.firestore();
+      const paymentDocRef = db.collection('payments').doc(razorpay_payment_id);
+
+      const txResult = await db.runTransaction(async (tx) => {
+        const doc = await tx.get(paymentDocRef);
+        if (doc.exists && doc.data()?.status === 'processed') {
+          return { alreadyProcessed: true };
+        }
+
+        tx.set(paymentDocRef, {
+          razorpayPaymentId: razorpay_payment_id,
+          razorpayOrderId: razorpay_order_id,
+          signature: razorpay_signature,
+          courseName: courseName || null,
+          status: 'processed',
+          processedAt: admin.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        // Enroll user if order exists and has uid
+        const orderDoc = await tx.get(db.collection('orders').doc(razorpay_order_id));
+        if (orderDoc.exists) {
+          const orderData = orderDoc.data() || {};
+          const uid = orderData.uid;
+          const course = orderData.courseName || courseName;
+          if (uid && course) {
+            const enrollmentRef = db.collection('users').doc(uid).collection('enrollments').doc(course);
+            tx.set(enrollmentRef, {
+              courseName: course,
+              enrolledAt: admin.firestore.FieldValue.serverTimestamp(),
+              paymentId: razorpay_payment_id
+            }, { merge: true });
+          }
+        }
+
+        return { alreadyProcessed: false };
+      });
+
+      if (txResult.alreadyProcessed) {
+        return res.json({ success: true, message: 'already processed' });
+      }
+
+      return res.json({ success: true, message: 'payment verified and recorded', paymentId: razorpay_payment_id });
     } catch (error) {
       console.error('Payment verification error:', error);
       res.status(500).json({ error: 'Payment verification failed' });

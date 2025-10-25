@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { courseService } from '@/services/courseService';
 import { addDoc, collection } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -44,37 +44,55 @@ export default function PaymentModal({
         throw new Error('Razorpay SDK not loaded');
       }
 
-      // Create order using direct service
+      // Create order using server-side service
       const orderData = await courseService.createPaymentOrder(courseName, userEmail);
 
-      // Initialize Razorpay without order_id for frontend-only implementation
+      // Prepare Razorpay options including server-generated order id
+      const keyId = (import.meta as any).env.VITE_RAZORPAY_KEY_ID || (window as any).VITE_RAZORPAY_KEY_ID || 'rzp_test_RWNpD510zwty8O';
       const options = {
-        key: "rzp_test_RWNpD510zwty8O",
+        key: keyId,
         amount: orderData.amount,
-        currency: "INR",
+        currency: orderData.currency || 'INR',
         name: 'Drishti Institute',
         description: `Enrollment for ${courseName}`,
+        order_id: orderData.orderId,
         handler: async (response: any) => {
           try {
-            console.log('Payment successful:', response);
-            
-            // Store transaction in Firebase
-            const transactionData = {
-              orderId: orderData.orderId,
-              paymentId: response.razorpay_payment_id,
-              courseName,
-              userEmail,
-              amount: orderData.amount,
-              status: 'completed',
-              completedAt: new Date(),
-            };
-            
-            // Save transaction to Firebase
-            await addDoc(collection(db, 'transactions'), transactionData);
-            console.log('Transaction saved to Firebase');
-            
-            onPaymentSuccess(courseName);
-            onClose();
+            // response contains razorpay_payment_id, razorpay_order_id, razorpay_signature
+            // Send to server verify endpoint so the server can validate signature and enroll the user
+            const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
+            const verifyEndpointBase = (import.meta as any).env.VITE_PAYMENT_SERVER_URL || '';
+            const verifyEndpoint = verifyEndpointBase
+              ? `${verifyEndpointBase.replace(/\/$/, '')}/api/payment/verify`
+              : '/api/payment/verify';
+
+            const verifyResp = await fetch(verifyEndpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(idToken ? { Authorization: `Bearer ${idToken}` } : {})
+              },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+                courseName,
+                userEmail
+              })
+            });
+
+            if (!verifyResp.ok) {
+              const text = await verifyResp.text();
+              throw new Error(`Server verify failed: ${verifyResp.status} ${text}`);
+            }
+
+            const verifyJson = await verifyResp.json();
+            if (verifyJson && verifyJson.success) {
+              onPaymentSuccess(courseName);
+              onClose();
+            } else {
+              throw new Error('Verification failed on server');
+            }
           } catch (error) {
             console.error('Payment verification error:', error);
             setError('Payment verification failed. Please contact support.');
