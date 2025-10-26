@@ -61,11 +61,18 @@ export default function PaymentModal({
             // response contains razorpay_payment_id, razorpay_order_id, razorpay_signature
             // Send to server verify endpoint so the server can validate signature and enroll the user
             const idToken = auth.currentUser ? await auth.currentUser.getIdToken() : null;
-            const verifyEndpointBase = (import.meta as any).env.VITE_PAYMENT_SERVER_URL || '';
-            const verifyEndpoint = verifyEndpointBase
-              ? `${verifyEndpointBase.replace(/\/$/, '')}/api/payment/verify`
-              : '/api/payment/verify';
+            const verifyEndpointBase = (import.meta as any).env.VITE_PAYMENT_SERVER_URL || 'https://payments.drishtinstitute.com';
+            const verifyEndpoint = `${verifyEndpointBase.replace(/\/$/, '')}/api/payment/verify`;
 
+            console.log('Calling verify endpoint:', verifyEndpoint);
+            console.log('Verify payload:', {
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature ? 'present' : 'missing',
+              courseName,
+              userEmail
+            });
+            
             const verifyResp = await fetch(verifyEndpoint, {
               method: 'POST',
               headers: {
@@ -80,14 +87,37 @@ export default function PaymentModal({
                 userEmail
               })
             });
+            
+            console.log('Verify response status:', verifyResp.status);
+            console.log('Verify response headers:', verifyResp.headers.get('content-type'));
 
             if (!verifyResp.ok) {
               const text = await verifyResp.text();
-              throw new Error(`Server verify failed: ${verifyResp.status} ${text}`);
+              console.log('Verify failed response text:', text.substring(0, 200));
+              throw new Error(`Server verify failed: ${verifyResp.status} ${text.substring(0, 100)}`);
             }
 
             const verifyJson = await verifyResp.json();
             if (verifyJson && verifyJson.success) {
+              // Save transaction to Firebase
+              try {
+                await addDoc(collection(db, 'transactions'), {
+                  userId: auth.currentUser?.uid,
+                  username: auth.currentUser?.displayName || 'Unknown',
+                  email: userEmail,
+                  courseName,
+                  amount: price,
+                  razorpayOrderId: response.razorpay_order_id,
+                  razorpayPaymentId: response.razorpay_payment_id,
+                  status: 'completed',
+                  createdAt: new Date(),
+                  timestamp: Date.now()
+                });
+                console.log('Transaction saved to Firebase');
+              } catch (error) {
+                console.error('Failed to save transaction:', error);
+              }
+              
               onPaymentSuccess(courseName);
               onClose();
             } else {

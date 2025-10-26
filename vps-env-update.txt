@@ -1,0 +1,2 @@
+# Update your VPS .env file with this:
+ALLOWED_ORIGINS=https://drishtinstitute.com,https://www.drishtinstitute.com,https://drishtimukesh-fd807.web.app,http://localhost:5173,https://payments.drishtinstitute.com

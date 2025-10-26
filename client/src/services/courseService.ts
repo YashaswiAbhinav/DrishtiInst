@@ -138,10 +138,8 @@ export const courseService = {
     method: 'POST',
     headers,
     body: JSON.stringify({ 
-      amount, 
-      currency: 'INR',
-      receipt: `course_${courseName}_${Date.now()}`,
-      notes: { courseName, userEmail }
+      courseName,
+      userEmail
     })
   });
 

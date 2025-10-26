@@ -1,0 +1,14 @@
+# Test these URLs directly in browser/Postman:
+
+1. Health check:
+GET https://payments.drishtinstitute.com/health
+
+2. Create order test:
+POST https://payments.drishtinstitute.com/api/payment/create-order
+Body: {"courseName": "Class 12th", "userEmail": "test@test.com"}
+
+3. Verify test:
+POST https://payments.drishtinstitute.com/api/payment/verify
+Body: {"razorpay_order_id": "test", "razorpay_payment_id": "test", "razorpay_signature": "test"}
+
+If any return HTML instead of JSON, that's your problem.
