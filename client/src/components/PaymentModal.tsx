@@ -195,20 +195,11 @@ export default function PaymentModal({
                     <li>• Complete course access</li>
                     <li>• All video lectures</li>
                     <li>• Study materials</li>
-                    <li>• Lifetime access</li>
+                    <li>• Live Class Access</li>
                     <li>• Expert support</li>
                   </ul>
                 </div>
 
-                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
-                  <h4 className="font-semibold text-yellow-900 mb-2">Test Payment Info:</h4>
-                  <div className="text-sm text-yellow-800 space-y-1">
-                    <div><strong>Card:</strong> 4111 1111 1111 1111</div>
-                    <div><strong>Expiry:</strong> Any future date</div>
-                    <div><strong>CVV:</strong> Any 3 digits</div>
-                    <div><strong>Name:</strong> Any name</div>
-                  </div>
-                </div>
 
                 {error && (
                   <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg">
@@ -235,10 +226,7 @@ export default function PaymentModal({
                   </Button>
                 </div>
 
-                <div className="text-xs text-gray-500 text-center">
-                  <div>Secure payment powered by Razorpay</div>
-                  <div className="text-yellow-600 mt-1">Test Mode - No real money will be charged</div>
-                </div>
+                
               </CardContent>
             </Card>
           </motion.div>
