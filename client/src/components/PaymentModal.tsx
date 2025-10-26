@@ -48,7 +48,7 @@ export default function PaymentModal({
       const orderData = await courseService.createPaymentOrder(courseName, userEmail);
 
       // Prepare Razorpay options including server-generated order id
-      const keyId = (import.meta as any).env.VITE_RAZORPAY_KEY_ID || (window as any).VITE_RAZORPAY_KEY_ID || 'rzp_test_RWNpD510zwty8O';
+      const keyId = (import.meta as any).env.VITE_RAZORPAY_KEY_ID || 'rzp_test_RXDOmPAbFmZi7C';
       const options = {
         key: keyId,
         amount: orderData.amount,

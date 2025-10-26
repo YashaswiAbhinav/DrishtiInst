@@ -45,10 +45,10 @@ export class PaymentService {
 
   getCoursePricing() {
     return {
-      'Class 9th': parseInt(process.env.CLASS_9_PRICE || '2999'),
-      'Class 10th': parseInt(process.env.CLASS_10_PRICE || '3999'),
-      'Class 11th': parseInt(process.env.CLASS_11_PRICE || '4999'),
-      'Class 12th': parseInt(process.env.CLASS_12_PRICE || '5999'),
+      'Class 9th': 2999,
+      'Class 10th': 3999,
+      'Class 11th': 4999,
+      'Class 12th': 5999,
     };
   }
 }

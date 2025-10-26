@@ -111,7 +111,11 @@ export const courseService = {
   }
 
   // Get the payment server URL from environment
-  const baseUrl = (import.meta as any).env.VITE_PAYMENT_SERVER_URL;
+  const baseUrl = (import.meta as any).env.VITE_PAYMENT_SERVER_URL || 'https://payments.drishtinstitute.com';
+  console.log('Environment check:', {
+    VITE_PAYMENT_SERVER_URL: baseUrl,
+    allEnv: (import.meta as any).env
+  });
   if (!baseUrl) {
     throw new Error('Payment server URL not configured. Set VITE_PAYMENT_SERVER_URL in .env');
   }
@@ -133,7 +137,12 @@ export const courseService = {
   const response = await fetch(endpoint, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ courseName, userEmail })
+    body: JSON.stringify({ 
+      amount, 
+      currency: 'INR',
+      receipt: `course_${courseName}_${Date.now()}`,
+      notes: { courseName, userEmail }
+    })
   });
 
   if (!response.ok) {
