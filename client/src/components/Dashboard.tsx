@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import PaymentModal from "./PaymentModal";
 import { courseService } from "@/services/courseService";
+import { liveStreamService } from "@/services/liveStreamService";
 import { 
   BookOpen, 
   Play, 
@@ -34,6 +35,7 @@ interface DashboardProps {
   onViewAllCourses?: () => void;
   onViewLMSContent?: () => void;
   onLinkEmail?: () => void;
+  onJoinLiveClass?: (courseName: string, streamUrl: string) => void;
 }
 
 
@@ -47,7 +49,8 @@ export default function Dashboard({
   onEnrollCourse, 
   onViewAllCourses, 
   onViewLMSContent,
-  onLinkEmail 
+  onLinkEmail,
+  onJoinLiveClass 
 }: DashboardProps) {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -329,13 +332,33 @@ export default function Dashboard({
                         </div>
                         
                         {user.enrolledCourses.includes(course.id) ? (
-                          <Button 
-                            onClick={onViewLMSContent} 
-                            className="w-full"
-                            data-testid={`button-view-course-${course.id}`}
-                          >
-                            Continue Learning
-                          </Button>
+                          <div className="space-y-2">
+                            <Button 
+                              onClick={onViewLMSContent} 
+                              className="w-full"
+                              data-testid={`button-view-course-${course.id}`}
+                            >
+                              Continue Learning
+                            </Button>
+                            {liveStreamService.hasLiveStream(course.id) && onJoinLiveClass && (
+                              <Button 
+                                onClick={async () => {
+                                  try {
+                                    const streamUrl = await liveStreamService.getLiveStreamUrl(course.id);
+                                    if (streamUrl) onJoinLiveClass(course.id, streamUrl);
+                                  } catch (error) {
+                                    console.error('Failed to get stream URL:', error);
+                                    alert('Unable to access live stream. Please ensure you are logged in.');
+                                  }
+                                }}
+                                variant="outline"
+                                className="w-full border-red-500 text-red-600 hover:bg-red-50"
+                                data-testid={`button-live-class-${course.id}`}
+                              >
+                                🔴 Join Live Class
+                              </Button>
+                            )}
+                          </div>
                         ) : (
                           <div className="space-y-2">
                             <div className="text-center">

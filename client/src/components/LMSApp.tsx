@@ -12,13 +12,14 @@ import ContactUs from "./ContactUs";
 import TermsAndConditions from "./TermsAndConditions";
 import RefundPolicy from "./RefundPolicy";
 import LinkEmailPassword from "./LinkEmailPassword";
+import LiveVideoPlayer from "./LiveVideoPlayer";
 
 import { useAdvancedAuth } from "@/hooks/useAdvancedAuth";
 
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content' | 'email-verification' | 'contact' | 'terms' | 'refund' | 'link-email';
+type AppState = 'welcome' | 'auth' | 'dashboard' | 'all-courses' | 'course-detail' | 'video-player' | 'lms-content' | 'email-verification' | 'contact' | 'terms' | 'refund' | 'link-email' | 'live-class';
 
 interface User {
   name: string;
@@ -33,6 +34,8 @@ export default function LMSApp() {
   const [selectedCourseId, setSelectedCourseId] = useState<string>('');
   const [selectedVideoUrl, setSelectedVideoUrl] = useState<string>('');
   const [selectedVideoTitle, setSelectedVideoTitle] = useState<string>('Course Video');
+  const [liveStreamUrl, setLiveStreamUrl] = useState<string>('');
+  const [liveCourseName, setLiveCourseName] = useState<string>('');
   const { user, userData, loading, login, register, logout, enrollInCourse, sendEmailVerificationToUser, refreshUser } = useAdvancedAuth();
 
   useEffect(() => {
@@ -162,6 +165,12 @@ export default function LMSApp() {
     setCurrentState('course-detail');
   };
 
+  const handleJoinLiveClass = (courseName: string, streamUrl: string) => {
+    setLiveCourseName(courseName);
+    setLiveStreamUrl(streamUrl);
+    setCurrentState('live-class');
+  };
+
   if (currentState === 'welcome') {
     return (
       <WelcomePage 
@@ -225,6 +234,7 @@ export default function LMSApp() {
         onViewAllCourses={handleViewAllCourses}
         onViewLMSContent={handleViewLMSContent}
         onLinkEmail={() => setCurrentState('link-email')}
+        onJoinLiveClass={handleJoinLiveClass}
       />
     );
   }
@@ -303,6 +313,17 @@ export default function LMSApp() {
 
   if (currentState === 'refund') {
     return <RefundPolicy onBack={() => setCurrentState('welcome')} />;
+  }
+
+  if (currentState === 'live-class') {
+    return (
+      <LiveVideoPlayer
+        streamUrl={liveStreamUrl}
+        courseName={liveCourseName}
+        onBack={handleBackToDashboard}
+        user={currentUser}
+      />
+    );
   }
 
 

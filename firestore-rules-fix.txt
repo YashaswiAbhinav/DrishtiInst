@@ -1,0 +1,30 @@
+// Replace your Firestore rules with this:
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Users can read/write their own enrollments
+    match /users/{userId}/enrollments/{document} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Allow authenticated users to read courses
+    match /courses/{document=**} {
+      allow read: if request.auth != null;
+    }
+    
+    // Allow authenticated users to write transactions
+    match /transactions/{document} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // Temporary: Allow all authenticated users to query users collection for username login
+    match /users/{document} {
+      allow read: if request.auth != null;
+    }
+  }
+}

@@ -1,0 +1,128 @@
+// Complete Firestore Security Rules for Drishti Institute LMS
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - handles registration, login, and user data
+    match /users/{userId} {
+      // Allow users to read/write their own document
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow reading for username/phone uniqueness checks during registration
+      allow read: if request.auth == null && 
+        (request.query.limit <= 1) && 
+        ('username' in resource.data || 'phone' in resource.data);
+      
+      // Allow creating new user documents during registration
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow authenticated users to query users for login verification
+      allow read: if request.auth != null;
+    }
+    
+    // User enrollments subcollection
+    match /users/{userId}/enrollments/{enrollmentId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Courses collection - public read access for course catalog
+    match /courses/{courseId} {
+      allow read: if true; // Public read access for course information
+      allow write: if false; // Only admins can modify courses (handled server-side)
+    }
+    
+    // Course content subcollection - only enrolled users can access
+    match /courses/{courseId}/content/{contentId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.enrolledCourses ||
+         courseId in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.enrolledCourses);
+    }
+    
+    // Transactions collection - for payment tracking
+    match /transactions/{transactionId} {
+      // Users can read their own transactions
+      allow read: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      
+      // Allow creating transactions during payment
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      
+      // Allow updating transaction status (for payment confirmation)
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Course progress tracking
+    match /progress/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /progress/{userId}/courses/{courseId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Announcements - public read access
+    match /announcements/{announcementId} {
+      allow read: if true;
+      allow write: if false; // Only admins can create announcements
+    }
+    
+    // Live stream status and metadata
+    match /livestreams/{streamId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only server can update stream status
+    }
+    
+    // User activity logs
+    match /activity/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    match /activity/{userId}/logs/{logId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Support tickets
+    match /support/{ticketId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+    
+    // System settings - read only for authenticated users
+    match /settings/{settingId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Only admins can modify settings
+    }
+    
+    // Pricing information - public read access
+    match /pricing/{priceId} {
+      allow read: if true;
+      allow write: if false; // Only admins can modify pricing
+    }
+    
+    // User sessions for security tracking
+    match /sessions/{sessionId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+    }
+    
+    // Feedback and reviews
+    match /feedback/{feedbackId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && 
+        request.auth.uid == request.resource.data.userId;
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Default deny rule for any other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

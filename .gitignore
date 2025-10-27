@@ -5,7 +5,3 @@ server/public
 vite.config.ts.*
 *.tar.gz
 drive-api-file.json
-.env
-.env.example
-.env.development
-.env.production

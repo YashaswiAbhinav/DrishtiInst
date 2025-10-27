@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Users collection - allow all operations for registration and login
+    match /users/{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Courses collection - public read access
+    match /courses/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Transactions collection - authenticated access
+    match /transactions/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+    
+    // All other collections - authenticated access
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
