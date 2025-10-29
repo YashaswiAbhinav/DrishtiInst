@@ -42,8 +42,7 @@ export default function MyCoursesPage({ user, onBack, onLogout, onPlayVideo }: M
       console.log('All courses from Firebase:', allCourses);
       const enrolledCourses = allCourses.filter(course => {
         const isEnrolled = user.enrolledCourses.some(enrolled => 
-          course.name?.toLowerCase().includes(enrolled.toLowerCase()) ||
-          enrolled.toLowerCase().includes(course.name?.toLowerCase() || '')
+          course.clas === enrolled
         );
         return isEnrolled;
       });

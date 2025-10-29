@@ -96,13 +96,11 @@ export default function Dashboard({
   };
 
   const allCourses = courses.map(course => ({
-    id: course,
-    name: course,
-    description: `Complete ${course} course with comprehensive coverage`,
-    students: 0,
-    videos: 0,
-    duration: "0 hours",
-    price: pricing[course] || 0
+    id: course.clas || course.id || course,
+    name: course.name || course.clas || course,
+    description: course.description || `Complete ${course.name || course.clas || course} course with comprehensive coverage`,
+    price: course.price || pricing[course.clas || course] || 2999,
+    baseImage: course.baseImage?.[0] || ''
   }));
   
   const enrolledCourseDetails = allCourses.filter(course => 
@@ -308,28 +306,23 @@ export default function Dashboard({
                 {displayCourses.map((course) => (
                   <Card key={course.id} className="hover-elevate">
                     <CardHeader>
-                      <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg mb-4 flex items-center justify-center">
-                        <Play className="h-12 w-12 text-primary" />
+                      <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg mb-4 flex items-center justify-center overflow-hidden">
+                        {course.baseImage ? (
+                          <img 
+                            src={course.baseImage} 
+                            alt={course.name}
+                            className="w-full h-full object-cover rounded-lg"
+                          />
+                        ) : (
+                          <Play className="h-12 w-12 text-primary" />
+                        )}
                       </div>
                       <CardTitle className="text-lg">{course.name}</CardTitle>
                       <CardDescription>{course.description}</CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-3">
-                        <div className="flex justify-between text-sm text-muted-foreground">
-                          <div className="flex items-center">
-                            <Users className="h-4 w-4 mr-1" />
-                            {course.students.toLocaleString()} students
-                          </div>
-                          <div className="flex items-center">
-                            <Play className="h-4 w-4 mr-1" />
-                            {course.videos} videos
-                          </div>
-                        </div>
-                        <div className="flex items-center text-sm text-muted-foreground">
-                          <Clock className="h-4 w-4 mr-1" />
-                          {course.duration}
-                        </div>
+
                         
                         {user.enrolledCourses.includes(course.id) ? (
                           <div className="space-y-2">

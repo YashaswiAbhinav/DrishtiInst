@@ -12,7 +12,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get available courses (all classes)
   app.get('/api/courses', async (req, res) => {
     try {
-      const availableCourses = ['Class 9th', 'Class 10th', 'Class 11th', 'Class 12th'];
+      const availableCourses = ['Class_9', 'Class_10', 'Class_11_Maths', 'Class_12_Maths', 'Class_11_Physics', 'Class_11_Chemistry', 'Class_12_Physics', 'Class_12_Chemistry'];
       res.json({ courses: availableCourses });
     } catch (error) {
       console.error('API Error:', error);
@@ -20,17 +20,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get specific course details from Firebase
-  app.get('/api/course/:courseId', async (req, res) => {
+  // Get specific course details from Firebase by clas
+  app.get('/api/course/:clas', async (req, res) => {
     try {
-      const { courseId } = req.params;
+      const { clas } = req.params;
       
-      // This should fetch from Firebase Firestore
-      // For now, return a basic structure
+      // Fetch from Firebase Firestore using clas field
+      const db = admin.firestore();
+      const coursesRef = db.collection('courses');
+      const snapshot = await coursesRef.where('clas', '==', clas).get();
+      
+      if (snapshot.empty) {
+        return res.status(404).json({ error: 'Course not found' });
+      }
+      
+      const courseDoc = snapshot.docs[0];
+      const courseData = courseDoc.data();
+      
       const course = {
-        id: courseId,
-        name: courseId,
-        description: `Complete ${courseId} course with comprehensive coverage`,
+        id: courseDoc.id,
+        ...courseData,
         totalVideos: 0,
         totalDuration: '0 hours',
         students: 0,
@@ -96,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { courseName } = req.body;
       // This endpoint now just validates the course exists
-      const availableCourses = ['Class 9th', 'Class 10th', 'Class 11th', 'Class 12th'];
+      const availableCourses = ['Class_9', 'Class_10', 'Class_11_Maths', 'Class_12_Maths', 'Class_11_Physics', 'Class_11_Chemistry', 'Class_12_Physics', 'Class_12_Chemistry'];
       
       if (!availableCourses.includes(courseName)) {
         return res.status(400).json({ error: 'Invalid course name' });

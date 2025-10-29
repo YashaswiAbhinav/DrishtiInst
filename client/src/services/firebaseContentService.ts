@@ -5,64 +5,45 @@ import type { Course, Subject, Chapter, Lecture } from '../../../shared/firebase
 export const firebaseContentService = {
   async getAllCourses(): Promise<Course[]> {
     try {
-      console.log('Fetching courses from Firestore...');
       const snapshot = await getDocs(collection(db, 'courses'));
-      console.log('Courses snapshot size:', snapshot.size);
-      const courses = snapshot.docs.map(doc => {
-        const data = doc.data() as Course;
-        console.log('Course data:', { id: doc.id, ...data });
-        return {
-          ...data,
-          id: doc.id
-        };
-      });
-      return courses;
+      return snapshot.docs.map(doc => ({ ...doc.data() as Course, id: doc.id }));
     } catch (error) {
       console.error('Error fetching all courses:', error);
       return [];
     }
   },
 
-  async getCoursesByClass(classValue: string): Promise<Course[]> {
+  async getCoursesByClass(clas: string): Promise<Course[]> {
     try {
-      const snapshot = await getDocs(collection(db, 'courses'));
-      const courses = snapshot.docs
-        .map(doc => ({ ...doc.data() as Course, id: doc.id }))
-        .filter(course => course.name?.includes(classValue) || course.clas === classValue);
+      const q = query(collection(db, 'courses'), where('clas', '==', clas));
+      const snapshot = await getDocs(q);
+      const courses = snapshot.docs.map(doc => ({ ...doc.data() as Course, id: doc.id }));
       return courses;
     } catch (error) {
-      console.error(`Error fetching courses by class ${classValue}:`, error);
+      console.error(`Error fetching courses by clas ${clas}:`, error);
       return [];
     }
   },
 
-  async getCourseById(courseId: string): Promise<Course | null> {
+  async getCourseByClas(clas: string): Promise<Course | null> {
     try {
-      const snapshot = await getDoc(doc(db, 'courses', courseId));
-      if (snapshot.exists()) {
-        return { ...snapshot.data() as Course, id: snapshot.id };
+      const q = query(collection(db, 'courses'), where('clas', '==', clas));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
+        return { ...doc.data() as Course, id: doc.id };
       }
       return null;
     } catch (error) {
-      console.error(`Error fetching course by ID ${courseId}:`, error);
+      console.error(`Error fetching course by clas ${clas}:`, error);
       return null;
     }
   },
 
   async getSubjectsByCourseId(courseId: string): Promise<Subject[]> {
     try {
-      console.log('Fetching subjects for course:', courseId);
       const snapshot = await getDocs(collection(db, 'courses', courseId, 'subjects'));
-      console.log('Subjects snapshot size:', snapshot.size);
-      const subjects = snapshot.docs.map(doc => {
-        const data = doc.data() as Subject;
-        console.log('Subject data:', { id: doc.id, ...data });
-        return {
-          ...data,
-          id: doc.id
-        };
-      });
-      return subjects;
+      return snapshot.docs.map(doc => ({ ...doc.data() as Subject, id: doc.id }));
     } catch (error) {
       console.error(`Error fetching subjects for course ${courseId}:`, error);
       return [];

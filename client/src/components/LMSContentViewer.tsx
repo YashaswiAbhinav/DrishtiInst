@@ -154,22 +154,7 @@ export default function LMSContentViewer({ onBack, onPlayVideo, user }: LMSConte
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm text-gray-600">
-                <div className="flex items-center space-x-4">
-                  <div className="flex items-center space-x-1">
-                    <Users className="h-4 w-4" />
-                    <span>{Math.floor(Math.random() * 1000) + 500} students</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Clock className="h-4 w-4" />
-                    <span>{Math.floor(totalLectures * 1.5)} hours</span>
-                  </div>
-                  <div className="flex items-center space-x-1">
-                    <Star className="h-4 w-4 text-yellow-500" />
-                    <span>4.{Math.floor(Math.random() * 3) + 7}</span>
-                  </div>
-                </div>
-              </div>
+
               
               <Button 
                 onClick={() => toggleExpanded(course.id!)}

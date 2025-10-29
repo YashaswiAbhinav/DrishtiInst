@@ -45,10 +45,14 @@ export class PaymentService {
 
   getCoursePricing() {
     return {
-      'Class 9th': 2999,
-      'Class 10th': 3999,
-      'Class 11th': 4999,
-      'Class 12th': 5999,
+      'Class_9': 2999,
+      'Class_10': 3999,
+      'Class_11_Maths': 4999,
+      'Class_12_Maths': 5999,
+      'Class_11_Physics': 4999,
+      'Class_11_Chemistry': 4999,
+      'Class_12_Physics': 5999,
+      'Class_12_Chemistry': 5999,
     };
   }
 }

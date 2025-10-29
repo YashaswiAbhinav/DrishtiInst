@@ -30,10 +30,8 @@ interface Course {
     name: string;
     description: string;
     subjects: string[];
-    students: number;
-    videos: number;
-    duration: string;
     price: string;
+    baseImage?: string;
 }
 
 interface CoursesPageProps {
@@ -76,27 +74,15 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
   const { data: courses, isLoading } = useQuery({
     queryKey: ['all-courses'],
     queryFn: async () => {
-      const [coursesData, pricingData] = await Promise.all([
-        courseService.getCourses(),
-        courseService.getCoursePricing()
-      ]);
+      const coursesData = await courseService.getCourses();
       
-      const courseStats = {
-        'Class 9th': { students: 2156, videos: 98, duration: '120 hours' },
-        'Class 10th': { students: 3156, videos: 134, duration: '150 hours' },
-        'Class 11th': { students: 1924, videos: 156, duration: '180 hours' },
-        'Class 12th': { students: 2847, videos: 178, duration: '200 hours' }
-      };
-      
-      return coursesData.map((courseName: string) => ({
-        id: courseName,
-        name: courseName,
-        description: `Complete ${courseName} curriculum with all subjects`,
-        subjects: ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
-        students: courseStats[courseName as keyof typeof courseStats]?.students || 1000,
-        videos: courseStats[courseName as keyof typeof courseStats]?.videos || 100,
-        duration: courseStats[courseName as keyof typeof courseStats]?.duration || '100 hours',
-  price: `₹${pricingData[courseName as keyof typeof pricingData]?.toLocaleString() || '2999'}`
+      return (coursesData || []).map((course: any) => ({
+        id: course?.clas || course?.id || '',
+        name: course?.name || course?.clas || '',
+        description: course?.description || `Complete ${course?.name || course?.clas || 'course'} curriculum`,
+        subjects: course?.subjects || ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
+        price: `₹${course?.price?.toLocaleString() || '2999'}`,
+        baseImage: course?.baseImage?.[0] || ''
       })) as Course[];
     }
   });
@@ -145,7 +131,14 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
   };
 
   const coursesByClass = courses?.reduce((acc, course) => {
-    const className = course.name.match(/Class (\d+)/)?.[1];
+    let className = '';
+    
+    // Handle new clas format: Class_9, Class_10, etc.
+    if (course.id?.includes('Class_9')) className = '9';
+    else if (course.id?.includes('Class_10')) className = '10';
+    else if (course.id?.includes('Class_11')) className = '11';
+    else if (course.id?.includes('Class_12')) className = '12';
+    
     if (className) {
       if (!acc[className]) {
         acc[className] = [];
@@ -153,7 +146,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
       acc[className].push(course);
     }
     return acc;
-  }, {} as Record<string, Course[]>);
+  }, {} as Record<string, Course[]>) || {};
 
 
   return (
@@ -218,7 +211,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                   Browse by Class
                 </h3>
                 <div className="space-y-2">
-                  {coursesByClass && Object.keys(coursesByClass).map((classNum) => (
+                  {Object.keys(coursesByClass).map((classNum) => (
                     <Button
                       key={classNum}
                       variant={activeClass === classNum ? "default" : "ghost"}
@@ -283,7 +276,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
               </TabsList>
 
               {isLoading && <div>Loading...</div>}
-              {coursesByClass && Object.entries(coursesByClass).map(([classNum, courses]) => (
+              {Object.entries(coursesByClass).map(([classNum, courses]) => (
                 <TabsContent key={classNum} value={classNum} className="mt-6">
                   <div className="grid md:grid-cols-2 gap-6">
                     {courses.map((course) => {
@@ -293,8 +286,16 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                         <Card key={course.id} className="hover-elevate">
                           <CardHeader>
                             <div className="flex items-start justify-between mb-4">
-                              <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center w-24 h-16">
-                                {getSubjectIcon(course.name)}
+                              <div className="aspect-video bg-gradient-to-br from-primary/20 to-primary/5 rounded-lg flex items-center justify-center w-24 h-16 overflow-hidden">
+                                {course.baseImage ? (
+                                  <img 
+                                    src={course.baseImage} 
+                                    alt={course.name}
+                                    className="w-full h-full object-cover rounded-lg"
+                                  />
+                                ) : (
+                                  getSubjectIcon(course.name)
+                                )}
                               </div>
                               {isEnrolled ? (
                                 <Badge variant="default">Enrolled</Badge>
@@ -311,7 +312,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                               <div>
                                 <h4 className="text-sm font-medium mb-2">Subjects Covered:</h4>
                                 <div className="flex flex-wrap gap-2">
-                                  {course.subjects.map((subject, index) => (
+                                  {(course.subjects || []).map((subject, index) => (
                                     <Badge key={index} variant="secondary" className="text-xs">
                                       {subject}
                                     </Badge>
@@ -319,21 +320,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                                 </div>
                               </div>
 
-                              {/* Stats */}
-                              <div className="grid grid-cols-3 gap-4 text-sm text-muted-foreground">
-                                <div className="flex items-center">
-                                  <Users className="h-4 w-4 mr-1" />
-                                  {course.students.toLocaleString()}
-                                </div>
-                                <div className="flex items-center">
-                                  <Play className="h-4 w-4 mr-1" />
-                                  {course.videos} videos
-                                </div>
-                                <div className="flex items-center">
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  {course.duration}
-                                </div>
-                              </div>
+
 
                               {/* Action Button */}
                               {isEnrolled ? (
