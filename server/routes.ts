@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import express from 'express';
+import path from 'path';
 import type { firestore } from 'firebase-admin';
 import { driveService } from "./driveService";
 import { paymentService } from "./paymentService";
@@ -385,6 +386,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const message = error instanceof Error ? error.message : 'Drive test failed';
       res.status(500).json({ error: message });
     }
+  });
+
+  // Serve images from attached_assets
+  app.get('/api/image/:filename', (req, res) => {
+    const { filename } = req.params;
+    const imagePath = path.join(__dirname, '../attached_assets/generated_images', filename);
+    res.sendFile(imagePath);
   });
 
   const httpServer = createServer(app);

@@ -27,96 +27,65 @@ export default function LiveVideoPlayer({ streamUrl, courseName, onBack, user }:
     const video = videoRef.current;
     if (!video) return;
 
-    const handleLoadStart = () => setIsLoading(true);
-    const handleCanPlay = () => setIsLoading(false);
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    const handleError = () => {
-      setError('Failed to load live stream. Please try again.');
-      setIsLoading(false);
-    };
+    let hls: any = null;
 
-    video.addEventListener('loadstart', handleLoadStart);
-    video.addEventListener('canplay', handleCanPlay);
-    video.addEventListener('play', handlePlay);
-    video.addEventListener('pause', handlePause);
-    video.addEventListener('error', handleError);
-
-    // Check stream availability first
-    const checkStreamAvailability = async () => {
-      try {
-        const response = await fetch(streamUrl, { method: 'HEAD' });
-        if (response.ok) {
-          setStreamStatus('live');
-          return true;
-        } else {
-          setStreamStatus('waiting');
-          return false;
-        }
-      } catch (error) {
-        setStreamStatus('waiting');
-        return false;
-      }
-    };
-
-    // Load HLS.js for HLS support with authentication
     const loadHLS = async () => {
       try {
-        // Check if stream is available first
-        const isStreamAvailable = await checkStreamAvailability();
-        
-        if (!isStreamAvailable) {
-          setIsLoading(false);
-          // Start polling for stream availability
-          const pollInterval = setInterval(async () => {
-            const available = await checkStreamAvailability();
-            if (available) {
-              clearInterval(pollInterval);
-              loadHLS(); // Retry loading
-            }
-          }, 10000); // Check every 10 seconds
-          
-          // Clear interval after 30 minutes
-          setTimeout(() => clearInterval(pollInterval), 30 * 60 * 1000);
-          return;
-        }
-
-        // Dynamically import HLS.js
         const Hls = (await import('hls.js')).default;
         
         if (Hls.isSupported()) {
-          const hls = new Hls();
+          hls = new Hls({
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            lowLatencyMode: true,
+            backBufferLength: 90,
+            liveSyncDurationCount: 3,
+            liveMaxLatencyDurationCount: 10,
+            enableWorker: true,
+            startLevel: -1
+          });
+          
           hls.loadSource(streamUrl);
           hls.attachMedia(video);
+          
           hls.on(Hls.Events.MANIFEST_PARSED, () => {
             setStreamStatus('live');
             setIsLoading(false);
-            video.play();
+            video.play().catch(console.error);
           });
-          hls.on(Hls.Events.ERROR, (event, data) => {
+          
+          hls.on(Hls.Events.ERROR, (event: any, data: any) => {
             console.error('HLS error:', data);
-            if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
-              setStreamStatus('waiting');
-              setError('');
-            } else {
-              setStreamStatus('error');
-              setError('Failed to load video player.');
+            if (data.fatal) {
+              switch (data.type) {
+                case Hls.ErrorTypes.NETWORK_ERROR:
+                  console.log('Network error, trying to recover...');
+                  hls.startLoad();
+                  break;
+                case Hls.ErrorTypes.MEDIA_ERROR:
+                  console.log('Media error, trying to recover...');
+                  hls.recoverMediaError();
+                  break;
+                default:
+                  setError('Stream error occurred');
+                  setStreamStatus('error');
+                  break;
+              }
             }
-            setIsLoading(false);
           });
         } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-          // Native HLS support (Safari)
           video.src = streamUrl;
-          video.load();
+          setStreamStatus('live');
+          setIsLoading(false);
         } else {
+          setError('HLS not supported in this browser');
           setStreamStatus('error');
-          setError('HLS not supported in this browser.');
           setIsLoading(false);
         }
       } catch (error) {
-        console.error('Failed to load HLS.js:', error);
+        console.error('Failed to load HLS:', error);
+        setError('Failed to load video player');
         setStreamStatus('error');
-        setError('Failed to load video player.');
         setIsLoading(false);
       }
     };
@@ -124,11 +93,9 @@ export default function LiveVideoPlayer({ streamUrl, courseName, onBack, user }:
     loadHLS();
 
     return () => {
-      video.removeEventListener('loadstart', handleLoadStart);
-      video.removeEventListener('canplay', handleCanPlay);
-      video.removeEventListener('play', handlePlay);
-      video.removeEventListener('pause', handlePause);
-      video.removeEventListener('error', handleError);
+      if (hls) {
+        hls.destroy();
+      }
     };
   }, [streamUrl]);
 
@@ -138,8 +105,9 @@ export default function LiveVideoPlayer({ streamUrl, courseName, onBack, user }:
 
     if (isPlaying) {
       video.pause();
+      setIsPlaying(false);
     } else {
-      video.play();
+      video.play().then(() => setIsPlaying(true)).catch(console.error);
     }
   };
 

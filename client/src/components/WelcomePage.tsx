@@ -200,7 +200,7 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
             >
               <div className="relative">
                 <img 
-                  src="/src/assets/mukeshSirPhoto.jpg" 
+                  src="/images/mukeshSirPhoto.jpg" 
                   alt="Founder - Mukesh Sir" 
                   className="w-full max-w-md mx-auto rounded-2xl shadow-2xl"
                 />
