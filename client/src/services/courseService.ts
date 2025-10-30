@@ -82,6 +82,7 @@ export const courseService = {
   },
 
   async createPaymentOrder(courseName: string, userEmail: string, customAmount?: number) {
+    console.log('=== createPaymentOrder called ===', { courseName, userEmail, customAmount });
     let amount = customAmount;
     
     // If no custom amount provided, get from Firebase
@@ -104,21 +105,41 @@ export const courseService = {
     const { auth } = await import('@/lib/firebase');
     const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
     
+    // Map new course names to VPS-expected format
+    const courseNameMapping = {
+      'Class_9': 'Class 9th',
+      'Class_10': 'Class 10th', 
+      'Class_11_Physics': 'Class 11th',
+      'Class_11_Chemistry': 'Class 11th',
+      'Class_11_Maths': 'Class 11th',
+      'Class_12_Physics': 'Class 12th',
+      'Class_12_Chemistry': 'Class 12th',
+      'Class_12_Maths': 'Class 12th'
+    };
+    
+    const vpsCourseName = courseNameMapping[courseName] || courseName;
+    
+    const payload = { 
+      courseName: vpsCourseName, 
+      userEmail,
+      customAmount: amount
+    };
+    
+    console.log('Creating payment order with payload:', payload);
+    
     const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
-      body: JSON.stringify({ 
-        courseName, 
-        userEmail,
-        customAmount: amount
-      })
+      body: JSON.stringify(payload)
     });
     
     if (!response.ok) {
-      throw new Error(`Payment order creation failed: ${response.status}`);
+      const errorText = await response.text();
+      console.error('Payment order creation failed:', response.status, errorText);
+      throw new Error(`Payment order creation failed: ${response.status} - ${errorText}`);
     }
     
     const data = await response.json();

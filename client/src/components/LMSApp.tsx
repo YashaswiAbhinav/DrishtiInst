@@ -263,6 +263,8 @@ export default function LMSApp() {
         onLogout={handleLogout}
         onViewCourseDetail={handleViewCourse}
         onEnrollCourse={handleEnrollCourse}
+        onViewLMSContent={handleViewLMSContent}
+        onJoinLiveClass={handleJoinLiveClass}
       />
     );
   }

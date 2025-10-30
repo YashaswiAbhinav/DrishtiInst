@@ -9,7 +9,7 @@ interface PaymentPlanModalProps {
   isOpen: boolean;
   onClose: () => void;
   courseName: string;
-  monthlyPrice: number;
+  baseAmount: number;
   userEmail: string;
   onPlanSelect: (paymentType: 'quarterly' | 'half-yearly' | 'one-time', amount: number, subscriptionMonths: number) => void;
 }
@@ -18,7 +18,7 @@ export default function PaymentPlanModal({
   isOpen, 
   onClose, 
   courseName, 
-  monthlyPrice, 
+  baseAmount, 
   userEmail, 
   onPlanSelect 
 }: PaymentPlanModalProps) {
@@ -26,33 +26,34 @@ export default function PaymentPlanModal({
 
   const isClass11 = courseName.includes('Class_11');
   const isClass12 = courseName.includes('Class_12');
-  const baseAmount = monthlyPrice * 12;
   
-  console.log('PaymentPlanModal - Course:', courseName, 'Monthly:', monthlyPrice, 'Base:', baseAmount, 'IsClass11:', isClass11, 'IsClass12:', isClass12);
+  console.log('PaymentPlanModal - Course:', courseName, 'Base amount:', baseAmount);
 
   // Calculate prices based on course level
   const calculatePrices = () => {
     if (isClass11) {
       return {
-        quarterly: Math.round(baseAmount / 4),
-        halfYearly: Math.round((baseAmount * 0.9) / 2),
-        oneTime: Math.round(baseAmount * 0.8)
+        quarterly: Math.round(baseAmount / 4), // No discount
+        halfYearly: Math.round((baseAmount * 0.9) / 2), // 10% discount, then divide by 2
+        oneTime: Math.round(baseAmount * 0.8) // 20% discount
       };
     } else if (isClass12) {
       return {
-        quarterly: Math.round(baseAmount / 4),
-        halfYearly: Math.round((baseAmount * 0.91667) / 2),
-        oneTime: Math.round(baseAmount * 0.83333)
+        quarterly: Math.round(baseAmount / 4), // No discount
+        halfYearly: Math.round((baseAmount * 0.91667) / 2), // 8.333% discount, then divide by 2
+        oneTime: Math.round(baseAmount * 0.83333) // 16.667% discount
       };
     }
     return {
       quarterly: Math.round(baseAmount / 4),
       halfYearly: Math.round(baseAmount / 2),
-      oneTime: baseAmount
+      oneTime: Math.round(baseAmount)
     };
   };
 
   const prices = calculatePrices();
+  console.log('PaymentPlanModal - Calculated prices:', prices);
+  
   const savings = {
     halfYearly: isClass11 ? 10 : 8.333,
     oneTime: isClass11 ? 20 : 16.667

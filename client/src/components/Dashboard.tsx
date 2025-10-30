@@ -57,7 +57,7 @@ export default function Dashboard({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
   const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number; paymentType?: string; subscriptionMonths?: number }>({ isOpen: false, courseName: '', price: 0 });
-  const [paymentPlanModal, setPaymentPlanModal] = useState<{ isOpen: boolean; courseName: string; monthlyPrice: number }>({ isOpen: false, courseName: '', monthlyPrice: 0 });
+  const [paymentPlanModal, setPaymentPlanModal] = useState<{ isOpen: boolean; courseName: string; baseAmount: number }>({ isOpen: false, courseName: '', baseAmount: 0 });
   const [courses, setCourses] = useState<any[]>([]);
   const [announcement, setAnnouncement] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -102,7 +102,8 @@ export default function Dashboard({
     name: course.name || course.clas || course,
     description: course.description || `Complete ${course.name || course.clas || course} course with comprehensive coverage`,
     price: course.price || pricing[course.clas || course] || 2999,
-    baseImage: course.baseImage?.[0] || ''
+    baseImage: course.baseImage?.[0] || '',
+    liveUrl: course.liveUrl || ''
   }));
   
   const enrolledCourseDetails = allCourses.filter(course => 
@@ -335,24 +336,28 @@ export default function Dashboard({
                             >
                               Continue Learning
                             </Button>
-                            {liveStreamService.hasLiveStreamSync(course.id) && onJoinLiveClass && (
-                              <Button 
-                                onClick={async () => {
-                                  try {
-                                    const streamUrl = await liveStreamService.getLiveStreamUrl(course.id);
-                                    if (streamUrl) onJoinLiveClass(course.id, streamUrl);
-                                  } catch (error) {
-                                    console.error('Failed to get stream URL:', error);
-                                    alert('Unable to access live stream. Please ensure you are logged in.');
-                                  }
-                                }}
-                                variant="outline"
-                                className="w-full border-red-500 text-red-600 hover:bg-red-50"
-                                data-testid={`button-live-class-${course.id}`}
-                              >
-                                🔴 Join Live Class
-                              </Button>
-                            )}
+                            <Button 
+                              onClick={() => {
+                                console.log('Dashboard Live class clicked for:', course.id);
+                                console.log('Course liveUrl:', course.liveUrl);
+                                
+                                if (!onJoinLiveClass) {
+                                  alert('Live class functionality not available');
+                                  return;
+                                }
+                                
+                                if (course.liveUrl && course.liveUrl.trim()) {
+                                  onJoinLiveClass(course.id, course.liveUrl.trim());
+                                } else {
+                                  alert('No live stream available for this course');
+                                }
+                              }}
+                              variant="outline"
+                              className="w-full border-red-500 text-red-600 hover:bg-red-50"
+                              data-testid={`button-live-class-${course.id}`}
+                            >
+                              🔴 Join Live Class
+                            </Button>
                           </div>
                         ) : (
                           <div className="space-y-2">
@@ -363,8 +368,7 @@ export default function Dashboard({
                               onClick={() => {
                                 const isClass11or12 = course.id.includes('Class_11') || course.id.includes('Class_12');
                                 if (isClass11or12) {
-                                  const monthlyPrice = course.price / 12;
-                                  setPaymentPlanModal({ isOpen: true, courseName: course.id, monthlyPrice });
+                                  setPaymentPlanModal({ isOpen: true, courseName: course.id, baseAmount: course.price });
                                 } else {
                                   setPaymentModal({ isOpen: true, courseName: course.id, price: course.price, paymentType: 'one-time', subscriptionMonths: 12 });
                                 }
@@ -388,12 +392,12 @@ export default function Dashboard({
 
       <PaymentPlanModal
         isOpen={paymentPlanModal.isOpen}
-        onClose={() => setPaymentPlanModal({ isOpen: false, courseName: '', monthlyPrice: 0 })}
+        onClose={() => setPaymentPlanModal({ isOpen: false, courseName: '', baseAmount: 0 })}
         courseName={paymentPlanModal.courseName}
-        monthlyPrice={paymentPlanModal.monthlyPrice}
+        baseAmount={paymentPlanModal.baseAmount}
         userEmail={user.email || ''}
         onPlanSelect={(paymentType, amount, subscriptionMonths) => {
-          setPaymentPlanModal({ isOpen: false, courseName: '', monthlyPrice: 0 });
+          setPaymentPlanModal({ isOpen: false, courseName: '', baseAmount: 0 });
           setPaymentModal({ 
             isOpen: true, 
             courseName: paymentPlanModal.courseName, 
