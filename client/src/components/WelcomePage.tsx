@@ -1,7 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
+import { examResultsService } from "@/services/examResultsService";
 import { 
   BookOpen, 
   Menu,
@@ -13,7 +15,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Smartphone,
-  Monitor
+  Monitor,
+  Trophy,
+  Star
 } from "lucide-react";
 
 interface WelcomePageProps {
@@ -26,6 +30,22 @@ interface WelcomePageProps {
 export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefund }: WelcomePageProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [toppers, setToppers] = useState<any[]>([]);
+  const [currentTopperSlide, setCurrentTopperSlide] = useState(0);
+  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    fetchToppers();
+  }, []);
+
+  const fetchToppers = async () => {
+    try {
+      const results = await examResultsService.getToppers();
+      setToppers(results);
+    } catch (error) {
+      console.error('Error fetching toppers:', error);
+    }
+  };
 
   const slides = [
     {
@@ -184,6 +204,114 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
               </Card>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Toppers Section */}
+      <section className="py-16 bg-gradient-to-br from-yellow-50 to-orange-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="text-center mb-12"
+          >
+            <div className="flex items-center justify-center mb-4">
+              <Trophy className="h-8 w-8 text-yellow-600 mr-2" />
+              <h2 className="text-4xl font-bold text-gray-900">Our Toppers</h2>
+            </div>
+            <p className="text-xl text-gray-600">Celebrating the success of our brilliant students</p>
+          </motion.div>
+
+          {toppers.length > 0 && (
+            <div className="relative">
+              <div className="overflow-hidden">
+                <div 
+                  className="flex transition-transform duration-500 ease-in-out"
+                  style={{ transform: `translateX(-${currentTopperSlide * 100}%)` }}
+                >
+                  {toppers.map((topper, index) => {
+                    const totalMarks = topper.subjects?.reduce((sum: number, subject: any) => sum + (subject.marks_secured || 0), 0) || 0;
+                    const avgMarks = topper.subjects?.length ? Math.round(totalMarks / topper.subjects.length) : 0;
+                    
+                    // Convert Google Drive URL to direct image URL
+                    const getImageUrl = (url: string) => {
+                      if (url?.includes('drive.google.com/file/d/')) {
+                        const fileId = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                        return fileId ? `https://drive.google.com/thumbnail?id=${fileId[1]}&sz=w200` : null;
+                      }
+                      return url;
+                    };
+                    
+                    const imageUrl = getImageUrl(topper.image_url);
+                    
+                    return (
+                      <div key={index} className="w-full flex-shrink-0">
+                        <Card className="bg-white shadow-xl border-0 hover:shadow-2xl transition-shadow max-w-md mx-auto">
+                          <CardContent className="p-6 text-center">
+                            <div className="relative mb-4 mx-auto w-fit">
+                              {imageUrl && !failedImages.has(imageUrl) ? (
+                                <img 
+                                  src={imageUrl} 
+                                  alt={topper.name}
+                                  className="w-24 h-24 rounded-full object-cover border-4 border-yellow-400"
+                                  onError={() => {
+                                    setFailedImages(prev => new Set(prev).add(imageUrl));
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center border-4 border-yellow-400">
+                                  <span className="text-white font-bold text-2xl">{topper.name?.charAt(0) || 'T'}</span>
+                                </div>
+                              )}
+                              <div className="absolute -top-2 -right-2">
+                                <Star className="h-6 w-6 text-yellow-500 fill-current" />
+                              </div>
+                            </div>
+                            <h3 className="text-xl font-bold text-gray-900 mb-2">{topper.name}</h3>
+                            <Badge variant="secondary" className="mb-3">{topper.exam_name}</Badge>
+                            <p className="text-gray-600 text-sm mb-3">Year: {topper.year}</p>
+                            <div className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white px-4 py-2 rounded-full text-sm font-semibold inline-block">
+                              Average: {avgMarks}%
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+              
+              {toppers.length > 1 && (
+                <>
+                  <button 
+                    onClick={() => setCurrentTopperSlide((prev) => (prev - 1 + toppers.length) % toppers.length)}
+                    className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg"
+                  >
+                    <ChevronLeft className="h-6 w-6 text-gray-700" />
+                  </button>
+                  <button 
+                    onClick={() => setCurrentTopperSlide((prev) => (prev + 1) % toppers.length)}
+                    className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/80 hover:bg-white rounded-full p-2 shadow-lg"
+                  >
+                    <ChevronRight className="h-6 w-6 text-gray-700" />
+                  </button>
+                  
+                  <div className="flex justify-center mt-6 space-x-2">
+                    {toppers.map((_, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentTopperSlide(index)}
+                        className={`w-3 h-3 rounded-full transition-colors ${
+                          index === currentTopperSlide ? 'bg-yellow-500' : 'bg-gray-300'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       </section>
 
