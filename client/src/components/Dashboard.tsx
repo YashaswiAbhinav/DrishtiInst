@@ -333,7 +333,7 @@ export default function Dashboard({
                             >
                               Continue Learning
                             </Button>
-                            {liveStreamService.hasLiveStream(course.id) && onJoinLiveClass && (
+                            {liveStreamService.hasLiveStreamSync(course.id) && onJoinLiveClass && (
                               <Button 
                                 onClick={async () => {
                                   try {

@@ -81,7 +81,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
         name: course?.name || course?.clas || '',
         description: course?.description || `Complete ${course?.name || course?.clas || 'course'} curriculum`,
         subjects: course?.subjects || ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
-        price: `₹${course?.price?.toLocaleString() || '2999'}`,
+        price: `₹${course?.displayPrice?.toLocaleString() || course?.price?.toLocaleString() || '2999'}`,
         baseImage: course?.baseImage?.[0] || ''
       })) as Course[];
     }
