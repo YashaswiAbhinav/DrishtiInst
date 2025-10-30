@@ -14,6 +14,8 @@ interface PaymentModalProps {
   courseName: string;
   price: number;
   userEmail: string;
+  paymentType?: string;
+  subscriptionMonths?: number;
   onPaymentSuccess: (courseName: string) => void;
 }
 
@@ -29,6 +31,8 @@ export default function PaymentModal({
   courseName, 
   price, 
   userEmail, 
+  paymentType = 'one-time',
+  subscriptionMonths = 12,
   onPaymentSuccess 
 }: PaymentModalProps) {
   const [loading, setLoading] = useState(false);
@@ -44,8 +48,8 @@ export default function PaymentModal({
         throw new Error('Razorpay SDK not loaded');
       }
 
-      // Create order using server-side service
-      const orderData = await courseService.createPaymentOrder(courseName, userEmail);
+      // Create order using server-side service with custom amount
+      const orderData = await courseService.createPaymentOrder(courseName, userEmail, price);
 
       // Prepare Razorpay options including server-generated order id
       const keyId = (import.meta as any).env.VITE_RAZORPAY_KEY_ID || 'rzp_test_RXDOmPAbFmZi7C';
@@ -101,19 +105,21 @@ export default function PaymentModal({
             if (verifyJson && verifyJson.success) {
               // Save transaction to Firebase
               try {
+                // Get real Firestore course document ID
+                const realCourseId = await courseService.getCourseIdByName(courseName);
+                
                 await addDoc(collection(db, 'transactions'), {
-                  userId: auth.currentUser?.uid,
-                  username: auth.currentUser?.displayName || 'Unknown',
-                  email: userEmail,
-                  courseName,
                   amount: price,
+                  courseID: realCourseId,
                   razorpayOrderId: response.razorpay_order_id,
                   razorpayPaymentId: response.razorpay_payment_id,
-                  status: 'completed',
-                  createdAt: new Date(),
-                  timestamp: Date.now()
+                  subscriptionMonths: subscriptionMonths,
+                  timestamp: Date.now(),
+                  userEmail: userEmail,
+                  userName: auth.currentUser?.displayName || 'Unknown',
+                  userId: auth.currentUser?.uid
                 });
-                console.log('Transaction saved to Firebase');
+                console.log('Transaction saved to Firebase with real courseID:', realCourseId);
               } catch (error) {
                 console.error('Failed to save transaction:', error);
               }
@@ -185,7 +191,11 @@ export default function PaymentModal({
                   <h3 className="text-lg font-semibold">{courseName}</h3>
                   <div className="flex items-center justify-center space-x-2">
                     <span className="text-2xl font-bold text-primary">₹{price.toLocaleString()}</span>
-                    <Badge variant="secondary">One-time payment</Badge>
+                    <Badge variant="secondary">
+                      {paymentType === 'quarterly' ? '3 months' : 
+                       paymentType === 'half-yearly' ? '6 months' : 
+                       '12 months'} access
+                    </Badge>
                   </div>
                 </div>
 

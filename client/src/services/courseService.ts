@@ -70,8 +70,7 @@ export const courseService = {
     }
   },
 
-  async createPaymentOrder(courseName: string, userEmail: string) {
-    // Get course price from Firebase
+  async getCourseIdByName(courseName: string) {
     const q = query(collection(db, 'courses'), where('clas', '==', courseName));
     const snapshot = await getDocs(q);
     
@@ -79,8 +78,24 @@ export const courseService = {
       throw new Error('Course not found');
     }
     
-    const courseData = snapshot.docs[0].data();
-    const amount = courseData.price;
+    return snapshot.docs[0].id;
+  },
+
+  async createPaymentOrder(courseName: string, userEmail: string, customAmount?: number) {
+    let amount = customAmount;
+    
+    // If no custom amount provided, get from Firebase
+    if (!amount) {
+      const q = query(collection(db, 'courses'), where('clas', '==', courseName));
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        throw new Error('Course not found');
+      }
+      
+      const courseData = snapshot.docs[0].data();
+      amount = courseData.price;
+    }
     
     // Call VPS payment server with actual course name and custom amount
     const baseUrl = (import.meta as any).env.VITE_PAYMENT_SERVER_URL || 'https://payments.drishtinstitute.com';

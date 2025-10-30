@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import PaymentModal from "./PaymentModal";
+import PaymentPlanModal from "./PaymentPlanModal";
 import { 
   BookOpen, 
   Play, 
@@ -68,7 +69,8 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeClass, setActiveClass] = useState("12"); // Default to show Class 12 (most popular)
-  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number }>({ isOpen: false, courseName: '', price: 0 });
+  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number; paymentType?: string; subscriptionMonths?: number }>({ isOpen: false, courseName: '', price: 0 });
+  const [paymentPlanModal, setPaymentPlanModal] = useState<{ isOpen: boolean; courseName: string; monthlyPrice: number }>({ isOpen: false, courseName: '', monthlyPrice: 0 });
   const queryClient = useQueryClient();
 
   const { data: courses, isLoading } = useQuery({
@@ -103,17 +105,33 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
     document.documentElement.classList.toggle('dark');
   };
 
-  const handleEnrollCourse = async (courseName: string, price: number) => {
-    // IMPORTANT: Only open payment modal - NO direct enrollment
-    console.log('Opening payment modal for:', courseName, 'Price:', price);
-    
-    // Ensure we never directly enroll - always go through payment
+  const handleEnrollCourse = async (courseName: string, monthlyPrice: number) => {
     if (user.enrolledCourses.includes(courseName)) {
       console.log('User already enrolled in:', courseName);
       return;
     }
     
-    setPaymentModal({ isOpen: true, courseName, price });
+    const isClass11or12 = courseName.includes('Class_11') || courseName.includes('Class_12');
+    console.log('Enroll Course - Course:', courseName, 'Monthly:', monthlyPrice, 'IsClass11or12:', isClass11or12);
+    
+    if (isClass11or12) {
+      setPaymentPlanModal({ isOpen: true, courseName, monthlyPrice });
+    } else {
+      // For Class 9/10, use full year pricing
+      const oneTimePrice = monthlyPrice * 12;
+      setPaymentModal({ isOpen: true, courseName, price: oneTimePrice, paymentType: 'one-time', subscriptionMonths: 12 });
+    }
+  };
+
+  const handlePlanSelect = (paymentType: 'quarterly' | 'half-yearly' | 'one-time', amount: number, subscriptionMonths: number) => {
+    setPaymentPlanModal({ isOpen: false, courseName: '', monthlyPrice: 0 });
+    setPaymentModal({ 
+      isOpen: true, 
+      courseName: paymentPlanModal.courseName, 
+      price: amount, 
+      paymentType,
+      subscriptionMonths
+    });
   };
 
   const handleContinueLearning = (courseId: string) => {
@@ -310,13 +328,25 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                             <div className="space-y-4">
                               {/* Subjects */}
                               <div>
-                                <h4 className="text-sm font-medium mb-2">Subjects Covered:</h4>
+                                <h4 className="text-sm font-medium mb-2">Subject:</h4>
                                 <div className="flex flex-wrap gap-2">
-                                  {(course.subjects || []).map((subject, index) => (
-                                    <Badge key={index} variant="secondary" className="text-xs">
-                                      {subject}
-                                    </Badge>
-                                  ))}
+                                  {(() => {
+                                    // Extract subject from course name for Class 11/12
+                                    if (course.id.includes('Class_11_') || course.id.includes('Class_12_')) {
+                                      const subject = course.id.split('_').pop();
+                                      return (
+                                        <Badge variant="secondary" className="text-xs">
+                                          {subject}
+                                        </Badge>
+                                      );
+                                    }
+                                    // For Class 9/10, show all subjects
+                                    return (course.subjects || []).map((subject, index) => (
+                                      <Badge key={index} variant="secondary" className="text-xs">
+                                        {subject}
+                                      </Badge>
+                                    ));
+                                  })()} 
                                 </div>
                               </div>
 
@@ -334,8 +364,8 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                               ) : (
                                 <Button
                                   onClick={() => {
-                                    const priceNum = parseInt(course.price.replace(/[^0-9]/g, ''));
-                                    handleEnrollCourse(course.id, priceNum);
+                                    const monthlyPrice = parseInt(course.price.replace(/[^0-9]/g, ''));
+                                    handleEnrollCourse(course.id, monthlyPrice);
                                   }}
                                   variant="outline"
                                   className="w-full"
@@ -378,12 +408,23 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
         </div>
       </div>
 
+      <PaymentPlanModal
+        isOpen={paymentPlanModal.isOpen}
+        onClose={() => setPaymentPlanModal({ isOpen: false, courseName: '', monthlyPrice: 0 })}
+        courseName={paymentPlanModal.courseName}
+        monthlyPrice={paymentPlanModal.monthlyPrice}
+        userEmail={user.email || ''}
+        onPlanSelect={handlePlanSelect}
+      />
+
       <PaymentModal
         isOpen={paymentModal.isOpen}
         onClose={() => setPaymentModal({ isOpen: false, courseName: '', price: 0 })}
         courseName={paymentModal.courseName}
         price={paymentModal.price}
         userEmail={user.email || ''}
+        paymentType={paymentModal.paymentType}
+        subscriptionMonths={paymentModal.subscriptionMonths}
         onPaymentSuccess={(courseName) => {
           console.log('Payment successful for:', courseName, '- Now enrolling user');
           onEnrollCourse(courseName);

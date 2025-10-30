@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { motion } from "framer-motion";
 import PaymentModal from "./PaymentModal";
+import PaymentPlanModal from "./PaymentPlanModal";
 import { courseService } from "@/services/courseService";
 import { liveStreamService } from "@/services/liveStreamService";
 import { 
@@ -55,7 +56,8 @@ export default function Dashboard({
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pricing, setPricing] = useState<Record<string, number>>({});
-  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number }>({ isOpen: false, courseName: '', price: 0 });
+  const [paymentModal, setPaymentModal] = useState<{ isOpen: boolean; courseName: string; price: number; paymentType?: string; subscriptionMonths?: number }>({ isOpen: false, courseName: '', price: 0 });
+  const [paymentPlanModal, setPaymentPlanModal] = useState<{ isOpen: boolean; courseName: string; monthlyPrice: number }>({ isOpen: false, courseName: '', monthlyPrice: 0 });
   const [courses, setCourses] = useState<any[]>([]);
   const [announcement, setAnnouncement] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -358,7 +360,15 @@ export default function Dashboard({
                               <span className="text-2xl font-bold text-primary">₹{course.price.toLocaleString()}</span>
                             </div>
                             <Button 
-                              onClick={() => setPaymentModal({ isOpen: true, courseName: course.id, price: course.price })} 
+                              onClick={() => {
+                                const isClass11or12 = course.id.includes('Class_11') || course.id.includes('Class_12');
+                                if (isClass11or12) {
+                                  const monthlyPrice = course.price / 12;
+                                  setPaymentPlanModal({ isOpen: true, courseName: course.id, monthlyPrice });
+                                } else {
+                                  setPaymentModal({ isOpen: true, courseName: course.id, price: course.price, paymentType: 'one-time', subscriptionMonths: 12 });
+                                }
+                              }} 
                               className="w-full"
                               data-testid={`button-enroll-course-${course.id}`}
                             >
@@ -376,12 +386,32 @@ export default function Dashboard({
         </div>
       </div>
 
+      <PaymentPlanModal
+        isOpen={paymentPlanModal.isOpen}
+        onClose={() => setPaymentPlanModal({ isOpen: false, courseName: '', monthlyPrice: 0 })}
+        courseName={paymentPlanModal.courseName}
+        monthlyPrice={paymentPlanModal.monthlyPrice}
+        userEmail={user.email || ''}
+        onPlanSelect={(paymentType, amount, subscriptionMonths) => {
+          setPaymentPlanModal({ isOpen: false, courseName: '', monthlyPrice: 0 });
+          setPaymentModal({ 
+            isOpen: true, 
+            courseName: paymentPlanModal.courseName, 
+            price: amount, 
+            paymentType,
+            subscriptionMonths
+          });
+        }}
+      />
+
       <PaymentModal
         isOpen={paymentModal.isOpen}
         onClose={() => setPaymentModal({ isOpen: false, courseName: '', price: 0 })}
         courseName={paymentModal.courseName}
         price={paymentModal.price}
         userEmail={user.email || ''}
+        paymentType={paymentModal.paymentType}
+        subscriptionMonths={paymentModal.subscriptionMonths}
         onPaymentSuccess={(courseName) => {
           console.log('Payment successful for:', courseName, '- Now enrolling user');
           onEnrollCourse(courseName);
