@@ -83,8 +83,18 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
-            <div className="flex items-center space-x-2">
-              <BookOpen className="h-8 w-8 text-blue-600" />
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/images/DI_logo.jpg" 
+                alt="Drishti Institute Logo"
+                className="h-12 w-12 rounded-full object-cover border-2 border-blue-600"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  target.nextElementSibling?.classList.remove('hidden');
+                }}
+              />
+              <BookOpen className="h-8 w-8 text-blue-600 hidden" />
               <span className="text-xl font-bold text-gray-900">Drishti Institute</span>
             </div>
 
