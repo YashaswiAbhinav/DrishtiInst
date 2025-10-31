@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { examResultsService } from "@/services/examResultsService";
+import DeveloperCredits from "./DeveloperCredits";
 import { 
   BookOpen, 
   Menu,
@@ -434,6 +435,8 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
           <div className="border-t border-gray-800 mt-6 pt-6 text-center text-gray-400 text-sm">
             <p>&copy; 2024 Drishti Institute. All rights reserved.</p>
           </div>
+          
+          <DeveloperCredits />
         </div>
       </footer>
     </div>
