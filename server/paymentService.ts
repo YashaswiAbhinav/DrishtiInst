@@ -32,7 +32,7 @@ export class PaymentService {
     try {
       const body = razorpayOrderId + '|' + razorpayPaymentId;
       const expectedSignature = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET!)
+        .createHmac('sha256', config.razorpay.keySecret)
         .update(body.toString())
         .digest('hex');
 

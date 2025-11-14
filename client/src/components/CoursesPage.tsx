@@ -29,6 +29,7 @@ import { liveStreamService } from "@/services/liveStreamService";
 
 interface Course {
     id: string;
+    documentId?: string;
     name: string;
     description: string;
     subjects: string[];
@@ -84,6 +85,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
       
       return (coursesData || []).map((course: any) => ({
         id: course?.clas || course?.id || '',
+        documentId: course?.documentId || course?.id || '',
         name: course?.name || course?.clas || '',
         description: course?.description || `Complete ${course?.name || course?.clas || 'course'} curriculum`,
         subjects: course?.subjects || ['Physics', 'Chemistry', 'Mathematics', 'Biology'],
@@ -306,7 +308,7 @@ export default function CoursesPage({ user, onBack, onLogout, onViewCourseDetail
                 <TabsContent key={classNum} value={classNum} className="mt-6">
                   <div className="grid md:grid-cols-2 gap-6">
                     {courses.map((course) => {
-                      const isEnrolled = user.enrolledCourses.includes(course.id);
+                      const isEnrolled = user.enrolledCourses.includes(course.id) || user.enrolledCourses.includes(course.documentId || '');
 
                       return (
                         <Card key={course.id} className="hover-elevate">

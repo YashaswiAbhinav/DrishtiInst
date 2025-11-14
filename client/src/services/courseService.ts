@@ -12,7 +12,11 @@ export const courseService = {
 
   async getCourses() {
     const snapshot = await getDocs(collection(db, 'courses'));
-    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+    return snapshot.docs.map(doc => ({ 
+      ...doc.data(), 
+      id: doc.id,
+      documentId: doc.id // Add explicit documentId field
+    }));
   },
 
   async getCoursePricing() {
@@ -21,6 +25,7 @@ export const courseService = {
     snapshot.docs.forEach(doc => {
       const data = doc.data();
       pricing[data.clas] = data.price;
+      pricing[doc.id] = data.price; // Also map by document ID
     });
     return pricing;
   },
@@ -49,15 +54,19 @@ export const courseService = {
 
   async enrollUserInCourse(userId: string, courseName: string) {
     try {
-      // Update user's enrolled courses
+      // Get course document ID from clas field
+      const courseId = await this.getCourseIdByName(courseName);
+      
+      // Update user's enrolled courses with document ID
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
-        listOfCourses: arrayUnion(courseName)
+        listOfCourses: arrayUnion(courseId)
       });
       
       // Create enrollment record
       await addDoc(collection(db, 'enrollments'), {
         userId,
+        courseId,
         courseName,
         enrolledAt: new Date(),
         status: 'active'
@@ -79,6 +88,17 @@ export const courseService = {
     }
     
     return snapshot.docs[0].id;
+  },
+
+  async getCourseByDocumentId(documentId: string) {
+    const docRef = doc(db, 'courses', documentId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      throw new Error('Course not found');
+    }
+    
+    return { ...docSnap.data(), id: docSnap.id };
   },
 
   async createPaymentOrder(courseName: string, userEmail: string, customAmount?: number) {
@@ -105,19 +125,8 @@ export const courseService = {
     const { auth } = await import('@/lib/firebase');
     const token = auth.currentUser ? await auth.currentUser.getIdToken() : null;
     
-    // Map new course names to VPS-expected format
-    const courseNameMapping = {
-      'Class_9': 'Class 9th',
-      'Class_10': 'Class 10th', 
-      'Class_11_Physics': 'Class 11th',
-      'Class_11_Chemistry': 'Class 11th',
-      'Class_11_Maths': 'Class 11th',
-      'Class_12_Physics': 'Class 12th',
-      'Class_12_Chemistry': 'Class 12th',
-      'Class_12_Maths': 'Class 12th'
-    };
-    
-    const vpsCourseName = courseNameMapping[courseName] || courseName;
+    // Pass the actual course name to VPS server for proper enrollment
+    const vpsCourseName = courseName;
     
     const payload = { 
       courseName: vpsCourseName, 

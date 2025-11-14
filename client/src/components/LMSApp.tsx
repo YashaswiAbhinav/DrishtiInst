@@ -39,7 +39,13 @@ export default function LMSApp() {
   const { user, userData, loading, login, register, logout, enrollInCourse, sendEmailVerificationToUser, refreshUser } = useAdvancedAuth();
 
   useEffect(() => {
-      if (user && userData) {
+    // Skip auth logic if we're on static pages
+    if (['contact', 'terms', 'refund'].includes(currentState)) {
+      console.log('Skipping auth logic for static page:', currentState);
+      return;
+    }
+
+    if (user && userData) {
       // Consider user verified if auth emailVerified OR Firestore emailVerified OR provider includes google
       const providerIsGoogle = !!user.providerData?.some(p => p.providerId === 'google.com');
       const firestoreVerified = !!userData.emailVerified;
@@ -63,10 +69,13 @@ export default function LMSApp() {
       }
     }
 
-    if (!loading) {
+    if (!loading && currentState === 'welcome') {
+      console.log('Auth logic complete, staying on welcome');
+    } else if (!loading && !['contact', 'terms', 'refund', 'auth', 'dashboard', 'email-verification'].includes(currentState)) {
+      console.log('Resetting to welcome from useEffect, current state:', currentState);
       setCurrentState('welcome');
     }
-  }, [user, userData, loading, user?.emailVerified]);
+  }, [user, userData, loading, user?.emailVerified, currentState]);
 
   const handleGetStarted = () => {
     setCurrentState('auth');
@@ -171,13 +180,29 @@ export default function LMSApp() {
     setCurrentState('live-class');
   };
 
+  // Handle static pages first, before auth logic
+  if (currentState === 'contact') {
+    console.log('Rendering ContactUs page');
+    return <ContactUs onBack={() => setCurrentState('welcome')} />;
+  }
+
+  if (currentState === 'terms') {
+    console.log('Rendering TermsAndConditions page');
+    return <TermsAndConditions onBack={() => setCurrentState('welcome')} />;
+  }
+
+  if (currentState === 'refund') {
+    console.log('Rendering RefundPolicy page');
+    return <RefundPolicy onBack={() => setCurrentState('welcome')} />;
+  }
+
   if (currentState === 'welcome') {
     return (
       <WelcomePage 
         onGetStarted={handleGetStarted}
-        onContactUs={() => setCurrentState('contact')}
-        onTerms={() => setCurrentState('terms')}
-        onRefund={() => setCurrentState('refund')}
+        onContactUs={() => { console.log('Setting state to contact'); setCurrentState('contact'); }}
+        onTerms={() => { console.log('Setting state to terms'); setCurrentState('terms'); }}
+        onRefund={() => { console.log('Setting state to refund'); setCurrentState('refund'); }}
       />
     );
   }
@@ -201,9 +226,9 @@ export default function LMSApp() {
     return (
       <WelcomePage 
         onGetStarted={handleGetStarted}
-        onContactUs={() => setCurrentState('contact')}
-        onTerms={() => setCurrentState('terms')}
-        onRefund={() => setCurrentState('refund')}
+        onContactUs={() => { console.log('Setting state to contact (fallback)'); setCurrentState('contact'); }}
+        onTerms={() => { console.log('Setting state to terms (fallback)'); setCurrentState('terms'); }}
+        onRefund={() => { console.log('Setting state to refund (fallback)'); setCurrentState('refund'); }}
       />
     );
   }
@@ -306,14 +331,17 @@ export default function LMSApp() {
   }
 
   if (currentState === 'contact') {
+    console.log('Rendering ContactUs page');
     return <ContactUs onBack={() => setCurrentState('welcome')} />;
   }
 
   if (currentState === 'terms') {
+    console.log('Rendering TermsAndConditions page');
     return <TermsAndConditions onBack={() => setCurrentState('welcome')} />;
   }
 
   if (currentState === 'refund') {
+    console.log('Rendering RefundPolicy page');
     return <RefundPolicy onBack={() => setCurrentState('welcome')} />;
   }
 

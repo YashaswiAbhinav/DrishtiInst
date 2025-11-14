@@ -28,14 +28,14 @@ export default function ContactUs({ onBack }: ContactUsProps) {
                     <Mail className="h-5 w-5 text-blue-600" />
                     <div>
                       <p className="font-medium">Email</p>
-                      <p className="text-gray-600">support@drishtinstitute.com</p>
+                      <p className="text-gray-600">drishtiinstitute1920@gmail.com</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <Phone className="h-5 w-5 text-blue-600" />
                     <div>
                       <p className="font-medium">Phone</p>
-                      <p className="text-gray-600">+91 9876543210</p>
+                      <p className="text-gray-600">+919288071920</p>
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -44,9 +44,8 @@ export default function ContactUs({ onBack }: ContactUsProps) {
                       <p className="font-medium">Address</p>
                       <p className="text-gray-600">
                         Drishti Institute<br />
-                        123 Education Street<br />
-                        Learning City, State 123456<br />
-                        India
+                        1𝐬𝐭 𝐛𝐫𝐚𝐧𝐜𝐡: 𝐍𝐚𝐲𝐚 𝐛𝐚𝐳𝐚𝐫 , 𝐁𝐢𝐭𝐞𝐬𝐡𝐰𝐚𝐫 𝐩𝐮𝐬𝐭𝐚𝐤𝐚𝐥𝐚𝐲 𝐠𝐚𝐥𝐢
+2𝐧𝐝 𝐛𝐫𝐚𝐧𝐜𝐡: 𝐆𝐮𝐥𝐭𝐞𝐫𝐚 𝐛𝐚𝐳𝐚𝐫, 𝐍𝐞𝐚𝐫 𝐒𝐚𝐫𝐬𝐰𝐚𝐭𝐢 𝐩𝐮𝐬𝐭𝐚𝐤𝐚𝐥𝐚𝐲
                       </p>
                     </div>
                   </div>
@@ -74,7 +73,7 @@ export default function ContactUs({ onBack }: ContactUsProps) {
                   <h4 className="font-medium mb-2">Support</h4>
                   <p className="text-sm text-gray-600">
                     For technical support, course inquiries, or payment issues, 
-                    please email us at support@drishtinstitute.com or call during business hours.
+                    please email us at drishtiinstitute1920@gmail.com or call during business hours.
                   </p>
                 </div>
               </div>

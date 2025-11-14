@@ -35,8 +35,36 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
   const [currentTopperSlide, setCurrentTopperSlide] = useState(0);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
+  const slides = [
+    {
+      title: "Excellence in Education",
+      subtitle: "Join India's Leading Online Institute",
+      image: "/images/poster1.jpg",
+      bgColor: "from-blue-600 to-indigo-700"
+    },
+    {
+      title: "Expert Faculty",
+      subtitle: "Learn from IIT/NIT Graduates",
+      image: "/images/poster1.jpg",
+      bgColor: "from-purple-600 to-pink-600"
+    },
+    {
+      title: "Live Interactive Classes",
+      subtitle: "Real-time Doubt Solving",
+      image: "/images/poster1.jpg",
+      bgColor: "from-green-600 to-teal-600"
+    }
+  ];
+
   useEffect(() => {
     fetchToppers();
+    
+    // Auto-transition slides every 5 seconds
+    const interval = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const fetchToppers = async () => {
@@ -47,27 +75,6 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
       console.error('Error fetching toppers:', error);
     }
   };
-
-  const slides = [
-    {
-      title: "Excellence in Education",
-      subtitle: "Join India's Leading Online Institute",
-      image: "/api/placeholder/800/400",
-      bgColor: "from-blue-600 to-indigo-700"
-    },
-    {
-      title: "Expert Faculty",
-      subtitle: "Learn from IIT/NIT Graduates",
-      image: "/api/placeholder/800/400",
-      bgColor: "from-purple-600 to-pink-600"
-    },
-    {
-      title: "Live Interactive Classes",
-      subtitle: "Real-time Doubt Solving",
-      image: "/api/placeholder/800/400",
-      bgColor: "from-green-600 to-teal-600"
-    }
-  ];
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
@@ -103,15 +110,23 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
             <nav className="hidden md:flex items-center space-x-8">
               <a href="#home" className="text-gray-700 hover:text-blue-600 font-medium">Home</a>
               <a href="#about" className="text-gray-700 hover:text-blue-600 font-medium">About</a>
-              <button onClick={onContactUs} className="text-gray-700 hover:text-blue-600 font-medium">Contact</button>
+              <button onClick={() => { console.log('Contact Us clicked'); onContactUs(); }} className="text-gray-700 hover:text-blue-600 font-medium">Contact</button>
               <button onClick={onGetStarted} className="text-gray-700 hover:text-blue-600 font-medium">Courses</button>
               
               {/* Social Media Icons */}
               <div className="flex items-center space-x-3 ml-4">
-                <Facebook className="h-5 w-5 text-gray-600 hover:text-blue-600 cursor-pointer" />
-                <Twitter className="h-5 w-5 text-gray-600 hover:text-blue-400 cursor-pointer" />
-                <Instagram className="h-5 w-5 text-gray-600 hover:text-pink-600 cursor-pointer" />
-                <Youtube className="h-5 w-5 text-gray-600 hover:text-red-600 cursor-pointer" />
+                <Facebook 
+                  className="h-5 w-5 text-gray-600 hover:text-blue-600 cursor-pointer" 
+                  onClick={() => window.open('https://www.facebook.com/people/Drishti-Institute-Bihta/100088089987216/', '_blank')}
+                />
+                <Instagram 
+                  className="h-5 w-5 text-gray-600 hover:text-pink-600 cursor-pointer" 
+                  onClick={() => window.open('https://www.instagram.com/drishti._.institute?igsh=MXI4cTdibDNzN2NtdQ==', '_blank')}
+                />
+                <Youtube 
+                  className="h-5 w-5 text-gray-600 hover:text-red-600 cursor-pointer" 
+                  onClick={() => window.open('https://www.youtube.com/@drishtiinstitute5667', '_blank')}
+                />
               </div>
             </nav>
 
@@ -135,14 +150,22 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
             <div className="px-4 py-4 space-y-4">
               <a href="#home" className="block text-gray-700 hover:text-blue-600 font-medium">Home</a>
               <a href="#about" className="block text-gray-700 hover:text-blue-600 font-medium">About</a>
-              <button onClick={onContactUs} className="block text-gray-700 hover:text-blue-600 font-medium w-full text-left">Contact</button>
+              <button onClick={() => { console.log('Contact Us mobile clicked'); onContactUs(); }} className="block text-gray-700 hover:text-blue-600 font-medium w-full text-left">Contact</button>
               <button onClick={onGetStarted} className="block text-gray-700 hover:text-blue-600 font-medium w-full text-left">Courses</button>
               
               <div className="flex items-center space-x-4 pt-4 border-t">
-                <Facebook className="h-6 w-6 text-gray-600 hover:text-blue-600 cursor-pointer" />
-                <Twitter className="h-6 w-6 text-gray-600 hover:text-blue-400 cursor-pointer" />
-                <Instagram className="h-6 w-6 text-gray-600 hover:text-pink-600 cursor-pointer" />
-                <Youtube className="h-6 w-6 text-gray-600 hover:text-red-600 cursor-pointer" />
+                <Facebook 
+                  className="h-6 w-6 text-gray-600 hover:text-blue-600 cursor-pointer" 
+                  onClick={() => window.open('https://www.facebook.com/people/Drishti-Institute-Bihta/100088089987216/', '_blank')}
+                />
+                <Instagram 
+                  className="h-6 w-6 text-gray-600 hover:text-pink-600 cursor-pointer" 
+                  onClick={() => window.open('https://www.instagram.com/drishti._.institute?igsh=MXI4cTdibDNzN2NtdQ==', '_blank')}
+                />
+                <Youtube 
+                  className="h-6 w-6 text-gray-600 hover:text-red-600 cursor-pointer" 
+                  onClick={() => window.open('https://www.youtube.com/@drishtiinstitute5667', '_blank')}
+                />
               </div>
             </div>
           </motion.div>
@@ -156,25 +179,26 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
             {/* Main Slideshow */}
             <div className="lg:col-span-2">
               <div className="relative h-96 rounded-xl overflow-hidden shadow-lg">
-                <div className={`absolute inset-0 bg-gradient-to-r ${slides[currentSlide].bgColor}`}>
-                  <div className="flex items-center justify-center h-full text-white text-center p-8">
-                    <div>
-                      <h2 className="text-4xl font-bold mb-4">{slides[currentSlide].title}</h2>
-                      <p className="text-xl">{slides[currentSlide].subtitle}</p>
-                    </div>
-                  </div>
-                </div>
+                <img 
+                  src={slides[currentSlide].image} 
+                  alt={slides[currentSlide].title}
+                  className="w-full h-full object-contain bg-white"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    target.style.display = 'none';
+                  }}
+                />
                 
                 {/* Navigation Arrows */}
                 <button 
                   onClick={prevSlide}
-                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-2"
+                  className="absolute left-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full p-2 z-10"
                 >
                   <ChevronLeft className="h-6 w-6 text-white" />
                 </button>
                 <button 
                   onClick={nextSlide}
-                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/30 rounded-full p-2"
+                  className="absolute right-4 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 rounded-full p-2 z-10"
                 >
                   <ChevronRight className="h-6 w-6 text-white" />
                 </button>
@@ -426,14 +450,14 @@ export default function WelcomePage({ onGetStarted, onContactUs, onTerms, onRefu
             </div>
             
             <div className="flex space-x-6 text-sm">
-              <button onClick={onTerms} className="hover:text-blue-400 transition-colors">Terms & Conditions</button>
+              <button onClick={() => { console.log('Terms clicked'); onTerms(); }} className="hover:text-blue-400 transition-colors">Terms & Conditions</button>
               <button onClick={onRefund} className="hover:text-blue-400 transition-colors">Refund Policy</button>
-              <button onClick={onContactUs} className="hover:text-blue-400 transition-colors">Contact Us</button>
+              <button onClick={() => { console.log('Footer Contact Us clicked'); onContactUs(); }} className="hover:text-blue-400 transition-colors">Contact Us</button>
             </div>
           </div>
           
           <div className="border-t border-gray-800 mt-6 pt-6 text-center text-gray-400 text-sm">
-            <p>&copy; 2024 Drishti Institute. All rights reserved.</p>
+            <p>&copy; 2025 Drishti Institute. All rights reserved.</p>
           </div>
           
           <DeveloperCredits />

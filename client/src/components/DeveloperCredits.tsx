@@ -12,14 +12,26 @@ interface DeveloperCardProps {
 
 function DeveloperCard({ name, role, linkedinUrl, githubUrl, avatar }: DeveloperCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  let hoverTimeout: NodeJS.Timeout;
+
+  const handleMouseEnter = () => {
+    clearTimeout(hoverTimeout);
+    setIsHovered(true);
+  };
+
+  const handleMouseLeave = () => {
+    hoverTimeout = setTimeout(() => {
+      setIsHovered(false);
+    }, 200);
+  };
 
   return (
-    <div className="relative inline-block">
-      <span 
-        className="text-blue-400 hover:text-blue-300 transition-colors font-medium cursor-pointer"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
+    <div 
+      className="relative inline-block"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <span className="text-blue-400 hover:text-blue-300 transition-colors font-medium cursor-pointer">
         {name}
       </span>
       
@@ -27,8 +39,6 @@ function DeveloperCard({ name, role, linkedinUrl, githubUrl, avatar }: Developer
         <div 
           className="absolute bottom-full mb-2 z-50 transform -translate-x-1/2"
           style={{ left: '50%' }}
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
         >
           <motion.div
             initial={{ opacity: 0, y: 10, scale: 0.9 }}

@@ -99,19 +99,20 @@ export default function Dashboard({
 
   const allCourses = courses.map(course => ({
     id: course.clas || course.id || course,
+    documentId: course.documentId || course.id,
     name: course.name || course.clas || course,
     description: course.description || `Complete ${course.name || course.clas || course} course with comprehensive coverage`,
-    price: course.price || pricing[course.clas || course] || 2999,
+    price: course.price || pricing[course.clas || course] || pricing[course.id] || 2999,
     baseImage: course.baseImage?.[0] || '',
     liveUrl: course.liveUrl || ''
   }));
   
   const enrolledCourseDetails = allCourses.filter(course => 
-    user.enrolledCourses.includes(course.id)
+    user.enrolledCourses.includes(course.id) || user.enrolledCourses.includes(course.documentId)
   );
 
   const availableCourses = allCourses.filter(course => 
-    !user.enrolledCourses.includes(course.id)
+    !user.enrolledCourses.includes(course.id) && !user.enrolledCourses.includes(course.documentId)
   );
 
   const displayCourses = enrolledCourseDetails.length > 0 ? enrolledCourseDetails : availableCourses.slice(0, 2);
@@ -327,7 +328,7 @@ export default function Dashboard({
                       <div className="space-y-3">
 
                         
-                        {user.enrolledCourses.includes(course.id) ? (
+                        {user.enrolledCourses.includes(course.id) || user.enrolledCourses.includes(course.documentId) ? (
                           <div className="space-y-2">
                             <Button 
                               onClick={onViewLMSContent} 
